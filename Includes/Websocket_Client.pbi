@@ -1,31 +1,41 @@
-﻿; Websocketclient by Netzvamp
+﻿; Websocketclient by Netzvamp / Robert Lieback
 ; Version: 2016/01/08
+; Correction of that mess by David "D3" Vogel 2017-05-10
 
 DeclareModule WebsocketClient
-  Declare OpenWebsocketConnection(URL.s)
-  Declare SendTextFrame(connection, message.s)
-  Declare ReceiveFrame(connection, *MsgBuffer)
-  Declare SetSSLProxy(ProxyServer.s = "", ProxyPort.l = 8182)
-  
   Enumeration
-    #frame_text
-    #frame_binary
-    #frame_closing
-    #frame_ping
-    #frame_unknown
+    #Opcode_Continuation
+    #Opcode_Text
+    #Opcode_Binary
+    
+    #Opcode_Connection_Close = 8
+    #Opcode_Ping
+    #Opcode_Pong
   EndEnumeration
+  
+  #RSV1 = %00000100
+  #RSV2 = %00000010
+  #RSV3 = %00000001
+  
+  Declare   OpenWebsocketConnection(URL.s)
+  
+  Declare   Frame_Send(ConnectionID, *Data, Data_Size.i, Opcode.a=#Opcode_Binary)
+  Declare   Frame_Text_Send(ConnectionID, Message.s)
+  
+  Declare   Frame_Receive(ConnectionID, *FrameType.Word=#Null)
+  
+  ;Declare   SetSSLProxy(ProxyServer.s = "", ProxyPort.l = 8182)
   
 EndDeclareModule
 
 Module WebsocketClient
   
-  ;TODO: Add function to send binary frame
   ;TODO: We don't support fragmetation right now
   ;TODO: We should send an closing frame, but server will also just close
   ;TODO: Support to send receive bigger frames
   
-  Declare Handshake(Connection, Servername.s, Path.s)
-  Declare ApplyMasking(Array Mask.a(1), *Buffer)
+  Declare   Handshake(Connection, Servername.s, Path.s)
+  Declare   ApplyMasking(Array Mask.a(1), *Data, Data_Size)
   
   Global Proxy_Server.s, Proxy_Port.l
   
@@ -35,10 +45,10 @@ Module WebsocketClient
     CompilerEndIf
   EndMacro
   
-  Procedure SetSSLProxy(ProxyServer.s = "", ProxyPort.l = 8182)
-    Proxy_Server.s = ProxyServer.s
-    Proxy_Port.l = ProxyPort.l
-  EndProcedure
+  ;Procedure SetSSLProxy(ProxyServer.s = "", ProxyPort.l = 8182)
+  ;  Proxy_Server.s = ProxyServer.s
+  ;  Proxy_Port.l = ProxyPort.l
+  ;EndProcedure
   
   Procedure OpenWebsocketConnection(URL.s)
     Protokol.s = GetURLPart(URL.s, #PB_URL_Protocol)
@@ -47,20 +57,26 @@ Module WebsocketClient
     If Port.l = 0 : Port.l = 80 : EndIf
     Path.s = GetURLPart(URL.s, #PB_URL_Path)
     If Path.s = "" : Path.s = "/" : EndIf
+    Parameters.s = GetURLPart(URL, #PB_URL_Parameters)
+    Address.s = Path
+    If Parameters
+      Address + "?" + Parameters
+    EndIf
     
     InitNetwork()
     If Protokol.s = "wss" ; If we connect with encryption (https)
       If Proxy_Port
-        Connection = OpenNetworkConnection(Proxy_Server.s, Proxy_Port.l, #PB_Network_TCP, 1000)
+        Connection = OpenNetworkConnection(Proxy_Server.s, Proxy_Port.l, #PB_Network_TCP, 2000)
       Else
         dbg("We need an SSL-Proxy like stunnel for encryption. Configure the proxy with SetSSLProxy().")
       EndIf
     ElseIf Protokol.s = "ws"
-      Connection = OpenNetworkConnection(Servername.s, Port.l, #PB_Network_TCP, 1000)
+      Connection = OpenNetworkConnection(Servername.s, Port.l, #PB_Network_TCP, 2000)
+      ;Connection = Proxy::Proxy_Connect("5.9.145.114", 1117, Servername, Port, 1, "", "", 1000)
     EndIf
     
     If Connection
-      If Handshake(Connection, Servername.s, Path.s)
+      If Handshake(Connection, Servername.s, Address.s)
         dbg("Connection and Handshake ok")
         ProcedureReturn Connection
       Else
@@ -73,14 +89,16 @@ Module WebsocketClient
     EndIf
   EndProcedure
   
-  Procedure Handshake(Connection, Servername.s, Path.s)
-    Request.s = "GET /" + Path.s + " HTTP/1.1"+ #CRLF$ +
+  Procedure Handshake(Connection, Servername.s, Address.s)
+    Request.s = "GET /" + Address.s + " HTTP/1.1"+ #CRLF$ +
                 "Host: " + Servername.s + #CRLF$ +
                 "Upgrade: websocket" + #CRLF$ +
                 "Connection: Upgrade" + #CRLF$ +
                 "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" + #CRLF$ +
                 "Sec-WebSocket-Version: 13" + #CRLF$ + 
-                "User-Agent: CustomWebsocketClient"+ #CRLF$ + #CRLF$
+                "User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64; rv:53.0) Gecko/20100101 Firefox/53.0"+ #CRLF$ + #CRLF$
+                
+    Debug Request
                 
     SendNetworkString(Connection, Request.s, #PB_UTF8)
     *Buffer = AllocateMemory(65536)
@@ -96,7 +114,10 @@ Module WebsocketClient
     
     Answer.s = UCase(Answer.s)
     
+    FreeMemory(*Buffer)
+    
     ; Check answer
+    Debug Answer
     If FindString(Answer.s, "HTTP/1.1 101") And FindString(Answer.s, "CONNECTION: UPGRADE") And FindString(Answer.s, "UPGRADE: WEBSOCKET")
       ProcedureReturn #True
     Else
@@ -104,256 +125,234 @@ Module WebsocketClient
     EndIf
   EndProcedure
   
-  Procedure ApplyMasking(Array Mask.a(1), *Buffer)
-    For i = 0 To MemorySize(*Buffer) - 1
-      PokeA(*Buffer + i, PeekA(*Buffer + i) ! Mask(i % 4))
+  Procedure ApplyMasking(Array Mask.a(1), *Data, Data_Size)
+    For i = 0 To Data_Size - 1
+      PokeA(*Data + i, PeekA(*Data + i) ! Mask(i % 4))
     Next
   EndProcedure
   
-  Procedure SendTextFrame(connection, message.s)
+  Procedure Frame_Send(ConnectionID, *Payload, Payload_Size.i, Opcode.a=#Opcode_Binary)
+    Protected Transmit_Size
+    Protected Transmit_Pos, Write_Pos
+    Protected Result
+    Protected Masking
     
-    ; Put String in Buffer
-    MsgLength.l = StringByteLength(message.s, #PB_UTF8)
-    *MsgBuffer = AllocateMemory(MsgLength)
-    PokeS(*MsgBuffer, message.s, MsgLength, #PB_UTF8|#PB_String_NoZero)
+    Transmit_Size = 2 + Payload_Size
     
-    dbg("Messagelength to send: " + Str(MsgLength))
+    If Payload_Size > 0
+      Masking = #True
+      Transmit_Size + 4
+    EndIf
     
-    ; The Framebuffer, we fill with senddata
-    If MsgLength <= 125
-      Fieldlength = 6
-    ElseIf MsgLength >= 126 And MsgLength <= 65535
-      Fieldlength = 8
+    If Payload_Size <= 125
+    ElseIf Payload_Size <= 65535
+      Transmit_Size + 2 ; Additional 2 bytes for the payload size entry
     Else
-      Fieldlength = 14
+      Transmit_Size + 8 ; Additional 8 bytes for the payload size entry
     EndIf
     
-    dbg("Fieldlength to send: " + Str(Fieldlength))
+    *Buffer = AllocateMemory(Transmit_Size)
     
-    
-    *FrameBuffer = AllocateMemory(Fieldlength + MsgLength)
-    
-    ; We generate 4 random masking bytes
-    Dim Mask.a(3)
-    Mask(0) = Random(255,0)
-    Mask(1) = Random(255,0) 
-    Mask(2) = Random(255,0) 
-    Mask(3) = Random(255,0) 
-    
-    pos = 0 ; The byteposotion in the framebuffer
-    
-    ; First Byte: FIN(1=finished with this Frame),RSV(0),RSV(0),RSV(0),OPCODE(4 byte)=0001(text) 
-    PokeB(*FrameBuffer, %10000001) : pos + 1 ; = 129
-    
-    ; Second Byte: Masking(1),length(to 125bytes, else we have to extend)
-    If MsgLength <= 125                                             ; Length fits in first byte
-      PokeA(*Framebuffer + pos, MsgLength + 128)    : pos + 1       ; + 128 for Masking
-    ElseIf MsgLength >= 126 And MsgLength <= 65535                  ; We have to extend length to third byte
-      PokeA(*Framebuffer + pos, 126 + 128)          : pos + 1       ; 126 for 2 extra length bytes and + 128 for Masking
-      PokeA(*FrameBuffer + pos, (MsgLength >> 8))   : pos + 1       ; First Byte
-      PokeA(*FrameBuffer + pos, MsgLength)          : pos + 1       ; Second Byte
-    Else                                                            ; It's bigger than 65535, we also use 8 extra bytes
-      PokeA(*Framebuffer + pos, 127 + 128)          : pos + 1       ; 127 for 8 extra length bytes and + 128 for Masking
-      PokeA(*Framebuffer + pos, 0)                  : pos + 1       ; 8 Bytes for payload lenght. We don't support giant packages for now, so first bytes are zero :P
-      PokeA(*Framebuffer + pos, 0)                  : pos + 1
-      PokeA(*Framebuffer + pos, 0)                  : pos + 1
-      PokeA(*Framebuffer + pos, 0)                  : pos + 1
-      PokeA(*Framebuffer + pos, MsgLength >> 24)    : pos + 1
-      PokeA(*Framebuffer + pos, MsgLength >> 16)    : pos + 1
-      PokeA(*Framebuffer + pos, MsgLength >> 8)     : pos + 1
-      PokeA(*Framebuffer + pos, MsgLength)          : pos + 1       ; = 10 Byte
-    EndIf
-    ; Write Masking Bytes
-    PokeA(*FrameBuffer + pos, Mask(0))              : pos + 1
-    PokeA(*FrameBuffer + pos, Mask(1))              : pos + 1
-    PokeA(*FrameBuffer + pos, Mask(2))              : pos + 1
-    PokeA(*FrameBuffer + pos, Mask(3))              : pos + 1
-    
-    ApplyMasking(Mask(), *MsgBuffer)
-    
-    CopyMemory(*MsgBuffer, *FrameBuffer + pos, MsgLength)
-    
-    ;For x = 0 To 100 Step 5
-      ;Debug Str(PeekA(*FrameBuffer + x)) + " | " + Str(PeekA(*FrameBuffer + x + 1)) + " | " + Str(PeekA(*FrameBuffer + x + 2)) + " | " + Str(PeekA(*FrameBuffer + x + 3)) + " | " + Str(PeekA(*FrameBuffer + x + 4))
-    ;Next
-    
-    If SendNetworkData(connection, *FrameBuffer, Fieldlength + MsgLength) = Fieldlength + MsgLength
-      dbg("Textframe send, Bytes: " + Str(Fieldlength + MsgLength))
-      ProcedureReturn #True
-    Else
-      ProcedureReturn #False
+    ; #### Generate 4 random masking bytes
+    If Masking
+      Dim Mask.a(3)
+      Mask(0) = Random(255,0)
+      Mask(1) = Random(255,0)
+      Mask(2) = Random(255,0)
+      Mask(3) = Random(255,0)
     EndIf
     
+    ; #### First Byte: FIN(1=finished with this Frame),RSV(0),RSV(0),RSV(0),OPCODE(4 byte)=0001(text) 
+    PokeB(*Buffer + Write_Pos, %10000000 | (Opcode & %1111)) : Write_Pos + 1
+    
+    ; #### Second Byte: Masking(1),length(to 125bytes, else we have to extend)
+    If Payload_Size <= 125                                                          ; Length fits in first byte
+      PokeA(*Buffer + Write_Pos, Payload_Size | (Masking << 7))   : Write_Pos + 1   ; + 128 for Masking
+    ElseIf Payload_Size <= 65535                                                    ; We have to extend length to third byte
+      PokeA(*Buffer + Write_Pos, 126 | (Masking << 7))            : Write_Pos + 1   ; 126 for 2 extra length bytes and + 128 for Masking
+      PokeA(*Buffer + Write_Pos, Payload_Size >> 8)               : Write_Pos + 1   ; First Byte
+      PokeA(*Buffer + Write_Pos, Payload_Size)                    : Write_Pos + 1   ; Second Byte
+    Else                                                                            ; It's bigger than 65535, we also use 8 extra bytes
+      PokeA(*Buffer + Write_Pos, 127 | (Masking << 7))            : Write_Pos + 1   ; 127 for 8 extra length bytes and + 128 for Masking
+      PokeA(*Buffer + Write_Pos, 0)                               : Write_Pos + 1   ; 8 Bytes for payload lenght. We don't support giant packages for now, so first bytes are zero :P
+      PokeA(*Buffer + Write_Pos, 0)                               : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, 0)                               : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, 0)                               : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, Payload_Size >> 24)              : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, Payload_Size >> 16)              : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, Payload_Size >> 8)               : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, Payload_Size)                    : Write_Pos + 1   ; = 10 Byte
+    EndIf
+    
+    ; #### Write Masking Bytes
+    If Masking
+      PokeA(*Buffer + Write_Pos, Mask(0))                         : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, Mask(1))                         : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, Mask(2))                         : Write_Pos + 1
+      PokeA(*Buffer + Write_Pos, Mask(3))                         : Write_Pos + 1
+    EndIf
+    
+    If *Payload And Payload_Size
+      If Masking
+        ApplyMasking(Mask(), *Payload, Payload_Size)
+      EndIf
+      CopyMemory(*Payload, *Buffer + Write_Pos, Payload_Size)     : Write_Pos + Payload_Size
+    EndIf
+    
+    While Transmit_Pos < Transmit_Size
+      Result = SendNetworkData(ConnectionID, *Buffer + Transmit_Pos, Transmit_Size - Transmit_Pos)
+      If Result >= 0
+        Transmit_Pos + Result
+      Else
+        FreeMemory(*Buffer)
+        ProcedureReturn #False
+      EndIf
+    Wend
+    
+    FreeMemory(*Buffer)
+    ProcedureReturn #True
   EndProcedure
   
-  Procedure ReceiveFrame(connection, *MsgBuffer)
+  Procedure Frame_Text_Send(ConnectionID, Message.s)
     
-    *FrameBuffer = AllocateMemory(65536)
+    Protected *Message = UTF8(Message)
+    Message_Size = MemorySize(*Message)
     
-    Repeat
-      *FrameBuffer = ReAllocateMemory(*FrameBuffer, 65536)
-      Size = ReceiveNetworkData(connection, *FrameBuffer, 65536)
-      ;Answer.s = Answer.s + PeekS(*FrameBuffer, Size, #PB_UTF8)
-    Until Size <> 65536
+    Result = Frame_Send(ConnectionID, *Message, Message_Size, #Opcode_Text)
     
-    dbg("Received Frame, Bytes: " + Str(Size))
+    FreeMemory(*Message)
+    ProcedureReturn Result
+  EndProcedure
+  
+  Procedure Frame_Receive(ConnectionID, *FrameType.Word=#Null)
+    Protected *Buffer = AllocateMemory(10)
+    Protected *Temp
+    Protected Receive_Pos = 0
+    Protected Receive_Size = 2
+    Protected Read_Pos = 0
+    Protected Temp_Result
+    Protected *Message
+    Protected Fragmented
+    Protected Payload_Size
     
-    *FrameBuffer = ReAllocateMemory(*FrameBuffer, Size)
+    While Receive_Pos < Receive_Size
+      Temp_Result = ReceiveNetworkData(ConnectionID, *Buffer + Receive_Pos, Receive_Size - Receive_Pos)
+      If Temp_Result < 0
+        FreeMemory(*Buffer)
+        ProcedureReturn #Null
+      Else
+        Receive_Pos + Temp_Result
+      EndIf
+    Wend
     
-    ;     ; debug: output any single byte
-    ;     If #PB_Compiler_Debugger
-    ;       For x = 0 To Size - 1 Step 1
-    ;         dbg_bytes.s + Str(PeekA(*FrameBuffer + x)) + " | "
-    ;       Next
-    ;       dbg(dbg_bytes)
-    ;     EndIf
-    
-    ; Getting informations about package
-    If PeekA(*FrameBuffer) & %10000000 > #False
-      ;dbg("Frame not fragmented")
-      fragmentation.b = #False
+    ; #### Getting informations about packet
+    If PeekA(*Buffer) & %10000000
+      Fragmented = #False
     Else
-      dbg("Frame fragmented! This not supported for now!")
-      fragmentation.b = #True
+      Fragmented = #True
     EndIf
     
-    ; Check for Opcodes
-    If PeekA(*FrameBuffer) = %10000001 ; Textframe
-      dbg("Text frame")
-      frame_typ.w = #frame_text
-    ElseIf PeekA(*FrameBuffer) = %10000010 ; Binary Frame
-      dbg("Binary frame")
-      frame_typ.w = #frame_binary
-    ElseIf PeekA(*FrameBuffer) = %10001000 ; Closing Frame
-      dbg("Closing frame")
-      frame_typ.w = #frame_closing
-    ElseIf PeekA(*FrameBuffer) = %10001001 ; Ping
-      ; We just answer pings
-      *pongbuffer = AllocateMemory(2)
-      PokeA(*pongbuffer, 138)
-      PokeA(*pongbuffer+1, 0)
-      SendNetworkData(connection, *pongbuffer, 2)
-      dbg("Received Ping, answered with Pong")
-      frame_typ.w = #frame_ping
-      ProcedureReturn
+    ; #### Check for Opcodes
+    If *FrameType : *FrameType\w = PeekA(*Buffer) & %1111 : EndIf
+    Select PeekA(*Buffer) & %1111
+      Case #Opcode_Continuation
+      Case #Opcode_Text
+      Case #Opcode_Binary
+      Case #Opcode_Connection_Close
+      Case #Opcode_Ping
+        Frame_Send(ConnectionID, #Null, 0, #Opcode_Pong)
+        FreeMemory(*Buffer)
+        ProcedureReturn #Null
+      Case #Opcode_Pong
+      Default
+        FreeMemory(*Buffer)
+        ProcedureReturn #Null
+    EndSelect
+    
+    Read_Pos + 1
+    
+    ; #### Check masking
+    If PeekA(*Buffer + Read_Pos) & %10000000
+      Masking = #True
+      Receive_Size + 4
     Else
-      dbg("Opcode unknown")
-      frame_typ.w = #frame_unknown
-      ProcedureReturn #False
+      Masking = #False
     EndIf
     
-    ; Check masking
-    If PeekA(*FrameBuffer + 1) & %10000000 = 128 : masking.b = #True : Else : masking.b = #False : EndIf
-    
-    dbg("Masking: " + Str(masking))
-    
-    pos.l = 1
-    
-    ; check size
-    If PeekA(*FrameBuffer + 1) & %01111111 <= 125 ; size is in this byte
-      frame_size.l = PeekA(*FrameBuffer + pos) & %01111111 : pos + 1
-    ElseIf PeekA(*FrameBuffer + 1) & %01111111 >= 126 ; Size is in 2 extra bytes
-      frame_size.l = PeekA(*FrameBuffer + 2) << 8 + PeekA(*FrameBuffer + 3) : pos + 2
+    ; #### Check size
+    If PeekA(*Buffer + Read_Pos) & %01111111 <= 125 ; size is in this byte
+      Payload_Size = PeekA(*Buffer + Read_Pos) & %01111111 : Read_Pos + 1
+    ElseIf PeekA(*Buffer + Read_Pos) & %01111111 >= 126 ; Size is in 2 extra bytes
+      
+      ; #### Receive 2 additional bytes
+      Receive_Size + 2
+      While Receive_Pos < Receive_Size
+        Temp_Result = ReceiveNetworkData(ConnectionID, *Buffer + Receive_Pos, Receive_Size - Receive_Pos)
+        If Temp_Result < 0
+          FreeMemory(*Buffer)
+          ProcedureReturn #Null
+        Else
+          Receive_Pos + Temp_Result
+        EndIf
+      Wend
+      
+      Read_Pos + 1
+      
+      Payload_Size = PeekA(*Buffer + Read_Pos) << 8 + PeekA(*Buffer + Read_Pos + 1) : Read_Pos + 2
+    Else
+      ; TODO: Ability to receive large frames
+      ProcedureReturn #Null
     EndIf
-    dbg("FrameSize: " + Str(frame_size.l))
     
-    If masking = #True
+    Receive_Size + Payload_Size
+    
+    ; #### Resize buffer
+    *Temp = ReAllocateMemory(*Buffer, Receive_Size)
+    If *Temp
+      *Buffer = *Temp
+    Else
+      FreeMemory(*Buffer)
+      ProcedureReturn #Null
+    EndIf
+    
+    ; #### Receive the main data
+    While Receive_Pos < Receive_Size
+      Temp_Result = ReceiveNetworkData(ConnectionID, *Buffer + Receive_Pos, Receive_Size - Receive_Pos)
+      If Temp_Result < 0
+        FreeMemory(*Buffer)
+        ProcedureReturn #Null
+      Else
+        Receive_Pos + Temp_Result
+      EndIf
+    Wend
+    
+    If Masking = #True
       Dim Mask.a(3)
-      Mask(0) = PeekA(*FrameBuffer + pos) : pos + 1
-      Mask(1) = PeekA(*FrameBuffer + pos) : pos + 1
-      Mask(2) = PeekA(*FrameBuffer + pos) : pos + 1
-      Mask(3) = PeekA(*FrameBuffer + pos) : pos + 1
+      Mask(0) = PeekA(*Buffer + Read_Pos) : Read_Pos + 1
+      Mask(1) = PeekA(*Buffer + Read_Pos) : Read_Pos + 1
+      Mask(2) = PeekA(*Buffer + Read_Pos) : Read_Pos + 1
+      Mask(3) = PeekA(*Buffer + Read_Pos) : Read_Pos + 1
       
-      ReAllocateMemory(*MsgBuffer,frame_size)
-      CopyMemory(*FrameBuffer + pos, *MsgBuffer, frame_size)
+      *Message = AllocateMemory(Receive_Size - Read_Pos)
+      CopyMemory(*Buffer + Read_Pos, *Message, Receive_Size - Read_Pos)
       
-      ApplyMasking(Mask(), *MsgBuffer)
-    Else
-      ReAllocateMemory(*MsgBuffer,frame_size)
-      CopyMemory(*FrameBuffer + pos, *MsgBuffer, frame_size)
+      ApplyMasking(Mask(), *Message, Receive_Size - Read_Pos)
+    ElseIf Receive_Size - Read_Pos > 0
+      *Message = AllocateMemory(Receive_Size - Read_Pos)
+      CopyMemory(*Buffer + Read_Pos, *Message, Receive_Size - Read_Pos)
     EndIf
     
-    ProcedureReturn frame_typ
-    
+    FreeMemory(*Buffer)
+    ProcedureReturn *Message
   EndProcedure
   
 EndModule
-
-
-CompilerIf #PB_Compiler_IsMainFile
-  
-  ; Minimal example to send and receive textmessages
-  ; The preconfigured testserver "echo.websocket.org" will just echo back everything you've send.
-  
-  XIncludeFile "module_websocketclient_gui.pbf"
-  
-  Global connection
-  
-  Procedure gui_button_connect(EventType)
-    If EventType = #PB_EventType_LeftClick
-      Debug "Connect clicked"
-      ;connection = WebsocketClient::OpenWebsocketConnection(GetGadgetText(#String_url))
-      connection = WebsocketClient::OpenWebsocketConnection(GetGadgetText(#String_url))
-      
-      AddGadgetItem(#ListView_Output, -1, "# Connected to " + GetGadgetText(#String_url))
-    EndIf
-  EndProcedure
-  
-  Procedure gui_button_send(EventType)
-    If EventType = #PB_EventType_LeftClick And Len(GetGadgetText(#String_send)) > 0 And connection
-      Debug "Send clicked"
-      If WebsocketClient::SendTextFrame(connection, GetGadgetText(#String_send)) = #False
-        Debug "Couldn't send. Are we disconnected?"
-      Else
-        AddGadgetItem(#ListView_Output, -1, "> " + GetGadgetText(#String_send))
-      EndIf
-    EndIf
-  EndProcedure
-  
-  OpenWindow_Websocketclient()
-  
-  ; Proxy Setting:
-  ; If you need an encyrpted connection (https/wss), you currently have to use an 
-  ; proxy software like stunnel (https://www.stunnel.org) to redirect unencrypted data into an encrypted connection
-  ; Example stunnel.conf section:
-  ;   [websocket]
-  ;   client = yes
-  ;   accept = 127.0.0.1:8182
-  ;   connect = echo.websocket.org:443
-  WebsocketClient::SetSSLProxy("127.0.0.1",8182)
-  
-  Repeat
-    
-    If Window_Websocketclient_Events( WaitWindowEvent(1) ) = #False : End : EndIf
-    
-    If connection
-      
-      NetworkEvent = NetworkClientEvent(connection)
-      
-      Select NetworkEvent
-          
-        Case #PB_NetworkEvent_Data
-          Debug "We've got Data"
-          *FrameBuffer = AllocateMemory(1)
-          Frametyp = WebsocketClient::ReceiveFrame(connection,*FrameBuffer)
-          If Frametyp = WebsocketClient::#frame_text
-            AddGadgetItem(#ListView_Output, -1, "< " + PeekS(*FrameBuffer,MemoryStringLength(*FrameBuffer,#PB_UTF8)-1,#PB_UTF8) )
-          ElseIf Frametyp = WebsocketClient::#frame_binary
-            AddGadgetItem(#ListView_Output, -1, "< Received Binaryframe" )
-          EndIf
-          
-        Case #PB_NetworkEvent_Disconnect
-          If disconnected = #False
-            Debug "Disconnected"
-          EndIf
-          disconnected = #True
-          NetworkEvent = #PB_NetworkEvent_None
-          
-        Case #PB_NetworkEvent_None
-          
-      EndSelect
-      
-    EndIf
-  ForEver
-  
-CompilerEndIf
+; IDE Options = PureBasic 5.60 (Windows - x64)
+; CursorPosition = 340
+; FirstLine = 272
+; Folding = --
+; EnableXP
+; DisableDebugger
+; EnableCompileCount = 2
+; EnableBuildCount = 0
+; EnableExeConstant
