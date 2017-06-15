@@ -18,7 +18,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0937
+  #Version = 0939
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -40,11 +40,20 @@ DeclareModule Main
     #Menu_Canvas_Reload
     #Menu_Canvas_AutoReload
     
+    #Menu_Settings_Change_Fingerprint
+    
     #Menu_Exit
   EndEnumeration
   
   #Cooldown_Center_X = 0      ; Temporary, until custom centers are introduced
   #Cooldown_Center_Y = 2000
+  
+  Enumeration
+    #Input_Result_Success
+    
+    #Input_Result_Local_Error
+    #Input_Result_Global_Error
+  EndEnumeration
   
   ; ################################################### Structures ##################################################
   Structure Main
@@ -60,8 +69,6 @@ DeclareModule Main
     Timer_PPS.q
     Counter_PPS.i
     PPS.d
-    
-    Fingerprint.s
   EndStructure
   
   Structure Window_Canvas
@@ -145,6 +152,8 @@ DeclareModule Main
     X.d
     Y.d
     Zoom.d
+    
+    Fingerprint.s
   EndStructure
   
   ; ################################################### Variables ###################################################
@@ -214,10 +223,6 @@ Module Main
     Palette(i)\Color = RGBA(Palette(i)\R, Palette(i)\G, Palette(i)\B, Palette(i)\A)
   Next
   
-  ; #### Create fingerprint
-  Define Random.q = Random(2147483647)
-  Main\Fingerprint = Fingerprint(@Random, 8, #PB_Cipher_MD5)
-  
   ; ################################################### Declares ####################################################
   Declare   Main()
   
@@ -226,6 +231,7 @@ Module Main
   Global Icon_map = CatchImage(#PB_Any, ?Icon_map)
   Global Icon_map_go = CatchImage(#PB_Any, ?Icon_map_go)
   Global Icon_time_go = CatchImage(#PB_Any, ?Icon_time_go)
+  Global Icon_key = CatchImage(#PB_Any, ?Icon_key)
   
   ; ################################################### Procedures ##################################################
   ; #### Works perfectly, A and B can be positive or negative. B must not be zero!
@@ -274,6 +280,11 @@ Module Main
     
     If Settings\Zoom = 0
       Settings\Zoom = 1
+    EndIf
+    
+    If Settings\Fingerprint = ""
+      Define Random.q = Random(2147483647)
+      Settings\Fingerprint = Fingerprint(@Random, 8, #PB_Cipher_MD5)
     EndIf
     
   EndProcedure
@@ -402,6 +413,9 @@ Module Main
       Case #Menu_Canvas_AutoReload
         Settings\Canvas_AutoReload = GetToolBarButtonState(Window\ToolBar, #Menu_Canvas_AutoReload)
         
+      Case #Menu_Settings_Change_Fingerprint
+        Settings\Fingerprint = InputRequester("Change fingerprint", "Enter the new fingerprint", Settings\Fingerprint)
+        
       Case #Menu_Exit
         Main\Quit = #True
         
@@ -449,6 +463,9 @@ Module Main
     MenuItem(#Menu_Canvas_Load, "Load viewport", ImageID(Icon_map))
     MenuItem(#Menu_Canvas_Reload, "Reload all", ImageID(Icon_map_go))
     
+    MenuTitle("Settings")
+    MenuItem(#Menu_Settings_Change_Fingerprint, "Change fingerprint", ImageID(Icon_key))
+    
     ;MenuTitle("Help")
     ;MenuItem(#Menu_Dummy, "Hilfe")
     ;MenuItem(#Menu_About, "About", ImageID(Icon_About))
@@ -464,6 +481,7 @@ Module Main
     ToolBarImageButton(#Menu_Canvas_Load, ImageID(Icon_map), #PB_ToolBar_Normal, "Load viewport")
     ToolBarImageButton(#Menu_Canvas_Reload, ImageID(Icon_map_go), #PB_ToolBar_Normal, "Reload all")
     ToolBarImageButton(#Menu_Canvas_AutoReload, ImageID(Icon_time_go), #PB_ToolBar_Toggle, "Autoreload")
+    ToolBarImageButton(#Menu_Settings_Change_Fingerprint, ImageID(Icon_key), #PB_ToolBar_Normal, "Fingerprint")
     
     SetToolBarButtonState(Window\ToolBar, #Menu_Canvas_AutoReload, Settings\Canvas_AutoReload)
     
@@ -1031,7 +1049,7 @@ Module Main
       If *Temp_Memory
         JSON_Temp = CatchJSON(#PB_Any, *Temp_Memory, MemorySize(*Temp_Memory))
         If JSON_Temp
-          WebSocket\URL = GetJSONString(GetJSONMember(JSONValue(JSON_Temp), "url")) + "/?fingerprint=" + Main\Fingerprint
+          WebSocket\URL = GetJSONString(GetJSONMember(JSONValue(JSON_Temp), "url")) + "/?fingerprint=" + Settings\Fingerprint
           Debug "Catched websocket url: " + WebSocket\URL
           
           WebSocket\Connection = WebsocketClient::OpenWebsocketConnection(WebSocket\URL)
@@ -1169,11 +1187,13 @@ Module Main
   EndProcedure
   
   Procedure HTTP_Post_Input(X, Y, Color_Index.a, *Template.Templates::Object=#Null, Fingerprint.s="")
+    Protected Error.s
+    Protected Result
     
     ; #### Check if the input is blocked
     ForEach Input_Blocking()
       If Input_Blocking()\X = X And Input_Blocking()\Y = Y And Input_Blocking()\Color_Index = Color_Index
-        ProcedureReturn #False
+        ProcedureReturn #Input_Result_Local_Error
       EndIf
     Next
     
@@ -1190,10 +1210,22 @@ Module Main
     
     JSON = ParseJSON(#PB_Any, Response)
     If JSON
-      Protected Success = GetJSONBoolean(GetJSONMember(JSONValue(JSON), "success"))
+      If GetJSONMember(JSONValue(JSON), "success")
+        Protected Success = GetJSONBoolean(GetJSONMember(JSONValue(JSON), "success"))
+      EndIf
       If GetJSONMember(JSONValue(JSON), "wait")
         Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "wait"))
         Main\Timestamp_Next_Pixel = Timestamp
+      EndIf
+      If GetJSONMember(JSONValue(JSON), "errors")
+        If GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0)
+          If GetJSONMember(GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0), "msg")
+            Error = GetJSONString(GetJSONMember(GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0), "msg"))
+            Select Error
+              Case "You are using a proxy!!!11!"
+            EndSelect
+          EndIf
+        EndIf
       EndIf
       FreeJSON(JSON)
     EndIf
@@ -1205,17 +1237,22 @@ Module Main
       Input_Blocking()\Y = Y
       Input_Blocking()\Color_Index = Color_Index
       Input_Blocking()\Timestamp = ElapsedMilliseconds()
+      StatusBarText(Window\StatusBar, 3, "Error: " + Error)
+      
+      Result = #Input_Result_Global_Error
     Else
       StatusBarText(Window\StatusBar, 3, "Last: X:" + X + " Y:" + Y + " Color:" + Color_Index + " '"+*Template\Settings\Filename+"'")
       Update_Pixel(X, Y, Palette(Color_Index)\Color)
+      
+      *Template\Settings\Counter + 1
+      If Timestamp > Get_Timestamp() And Timestamp - Get_Timestamp() < 3600000
+        *Template\Settings\Total_Time + (Timestamp - Get_Timestamp())
+      EndIf
+      
+      Result = #Input_Result_Success
     EndIf
     
-    *Template\Settings\Counter + 1
-    If Timestamp > Get_Timestamp() And Timestamp - Get_Timestamp() < 3600000
-      *Template\Settings\Total_Time + (Timestamp - Get_Timestamp())
-    EndIf
-    
-    ProcedureReturn Success
+    ProcedureReturn Result
   EndProcedure
   
   Procedure HTTP_Post_Timesync(Fingerprint.s="")
@@ -1276,7 +1313,7 @@ Module Main
     If Main\Timestamp_Next_TimeRequest < Date()
       Main\Timestamp_Next_TimeRequest = Date() + 30
       
-      HTTP_Post_Timesync(Main\Fingerprint)
+      HTTP_Post_Timesync(Settings\Fingerprint)
       
     EndIf
     
@@ -1366,18 +1403,18 @@ Module Main
     Icon_map:           : IncludeBinary "Data/Icons/map.png"
     Icon_map_go:        : IncludeBinary "Data/Icons/map_go.png"
     Icon_time_go:       : IncludeBinary "Data/Icons/time_go.png"
+    Icon_key:           : IncludeBinary "Data/Icons/key.png"
   EndDataSection
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 484
-; FirstLine = 447
+; CursorPosition = 20
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 455
-; EnableBuildCount = 53
+; EnableCompileCount = 467
+; EnableBuildCount = 57
 ; EnableExeConstant

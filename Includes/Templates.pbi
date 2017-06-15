@@ -42,6 +42,12 @@ DeclareModule Templates
     #Reorder_Bottom_To_Top
   EndEnumeration
   
+  Enumeration
+    #Draw_Result_Success
+    #Draw_Result_Nothing_To_Draw
+    #Draw_Result_Error
+  EndEnumeration
+  
   #Reorder_Amount = 4
   
   #Regression_Amount = 30
@@ -669,7 +675,7 @@ Module Templates
   
   Procedure Reorder_Template_Center_Distance(*Object.Object, Options=#PB_Sort_Ascending)
     ForEach *Object\Difference()
-      *Object\Difference()\Reorder_Temp = Pow(*Object\Width / 2 - *Object\Difference()\X, 2) + Pow(*Object\Height / 2 - *Object\Difference()\Y, 2)
+      *Object\Difference()\Reorder_Temp = Pow((*Object\Width-1) / 2 - *Object\Difference()\X, 2) + Pow((*Object\Height-1) / 2 - *Object\Difference()\Y, 2)
     Next
     
     SortStructuredList(*Object\Difference(), Options, OffsetOf(Difference\Reorder_Temp), TypeOf(Difference\Reorder_Temp))
@@ -681,9 +687,9 @@ Module Templates
     Protected Distance.d
     
     ForEach *Object\Difference()
-      Distance = Abs(*Object\Difference()\X - *Object\Width / 2)
-      If Distance < Abs(*Object\Difference()\Y - *Object\Height / 2)
-        Distance = Abs(*Object\Difference()\Y - *Object\Height / 2)
+      Distance = Abs(*Object\Difference()\X - (*Object\Width-1) / 2)
+      If Distance < Abs(*Object\Difference()\Y - (*Object\Height-1) / 2)
+        Distance = Abs(*Object\Difference()\Y - (*Object\Height-1) / 2)
       EndIf
       *Object\Difference()\Reorder_Temp = Distance
     Next
@@ -745,6 +751,7 @@ Module Templates
   Procedure Draw(*Object.Object)
     Protected i
     Protected Counter
+    Protected Result
     
     ; #### Reorder difference list
     For i = 0 To #Reorder_Amount-1
@@ -769,16 +776,21 @@ Module Templates
     Next
     
     ForEach *Object\Difference()
-      If Main::HTTP_Post_Input(*Object\Settings\X + *Object\Difference()\X, *Object\Settings\Y + *Object\Difference()\Y, *Object\Difference()\Template_Color_Index, *Object, Main::Main\Fingerprint)
-        ProcedureReturn #True
-      EndIf
-      If Counter > 20
-        ProcedureReturn #False
-      EndIf
-      Counter + 1
+      Result = Main::HTTP_Post_Input(*Object\Settings\X + *Object\Difference()\X, *Object\Settings\Y + *Object\Difference()\Y, *Object\Difference()\Template_Color_Index, *Object, Main::Settings\Fingerprint)
+      Select Result
+        Case Main::#Input_Result_Success
+          ProcedureReturn #Draw_Result_Success
+        Case Main::#Input_Result_Local_Error
+          Counter + 1
+          If Counter > 20
+            ProcedureReturn #Draw_Result_Error
+          EndIf
+        Case Main::#Input_Result_Global_Error
+          ProcedureReturn #Draw_Result_Error
+      EndSelect
     Next
     
-    ProcedureReturn #False
+    ProcedureReturn #Draw_Result_Nothing_To_Draw
   EndProcedure
   
   Procedure Compare_Template(*Object.Object)
@@ -986,13 +998,15 @@ Module Templates
     
     ; #### Draw templates
     If Main::Main\Timestamp_Next_Pixel + 1000 < Main::Get_Timestamp() And Timer_Draw < ElapsedMilliseconds()
-      Timer_Draw = ElapsedMilliseconds() + 5000
+      Timer_Draw = ElapsedMilliseconds() + 20000
       ForEach Object()
-        If Object()\Settings\Active And Draw(Object())
-          Break
-        EndIf
-        If Not Main::Main\Timestamp_Next_Pixel + 1000 < Main::Get_Timestamp()
-          Break
+        If Object()\Settings\Active
+          Select Draw(Object())
+            Case #Draw_Result_Success, #Draw_Result_Error
+              Break
+            Case #Draw_Result_Nothing_To_Draw
+              
+          EndSelect
         EndIf
       Next
     EndIf
@@ -1018,8 +1032,8 @@ Module Templates
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 993
-; FirstLine = 964
+; CursorPosition = 677
+; FirstLine = 583
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe
