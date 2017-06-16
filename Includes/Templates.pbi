@@ -665,7 +665,7 @@ Module Templates
   
   Procedure Reorder_Center_Distance(*Object.Object, Options=#PB_Sort_Ascending)
     ForEach *Object\Difference()
-      *Object\Difference()\Reorder_Temp = Pow(*Object\Difference()\X + *Object\Settings\X - Main::#Cooldown_Center_X, 2) + Pow(*Object\Difference()\Y + *Object\Settings\Y - Main::#Cooldown_Center_Y, 2)
+      *Object\Difference()\Reorder_Temp = Pow(*Object\Difference()\X + *Object\Settings\X - Main::Userdata\Center_X, 2) + Pow(*Object\Difference()\Y + *Object\Settings\Y - Main::Userdata\Center_Y, 2)
     Next
     
     SortStructuredList(*Object\Difference(), Options, OffsetOf(Difference\Reorder_Temp), TypeOf(Difference\Reorder_Temp))
@@ -997,7 +997,7 @@ Module Templates
     Next
     
     ; #### Draw templates
-    If Main::Main\Timestamp_Next_Pixel + 1000 < Main::Get_Timestamp() And Timer_Draw < ElapsedMilliseconds()
+    If Main::Userdata\Timestamp_Next_Pixel + 1000 < Main::Get_Timestamp() And Timer_Draw < ElapsedMilliseconds()
       Timer_Draw = ElapsedMilliseconds() + 20000
       ForEach Object()
         If Object()\Settings\Active
@@ -1032,8 +1032,8 @@ Module Templates
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 677
-; FirstLine = 583
+; CursorPosition = 999
+; FirstLine = 980
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe

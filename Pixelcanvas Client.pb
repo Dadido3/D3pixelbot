@@ -45,9 +45,6 @@ DeclareModule Main
     #Menu_Exit
   EndEnumeration
   
-  #Cooldown_Center_X = 0      ; Temporary, until custom centers are introduced
-  #Cooldown_Center_Y = 2000
-  
   Enumeration
     #Input_Result_Success
     
@@ -59,16 +56,27 @@ DeclareModule Main
   Structure Main
     Quit.i
     
-    Timestamp_Next_Pixel.d        ; Point of time, when the next pixel is drawable
-    
     Timestamp_Offset.d            ; Server timestamp offset (to ElapsedMilliseconds())
-    Timestamp_TimeRequest.q       ; Point of time (ElapsedMilliseconds()), when the current request was sent
-    Timestamp_Next_TimeRequest.q  ; Point of time, when to make a new timestamp request
-    Timestamp_Counter.u           ; Counter for the timestamp request
+    Timestamp_TimeRequest.q       ; Point of time, when the current request was sent (ElapsedMilliseconds())
+    ;Timestamp_Next_TimeRequest.q  ; Point of time, when to make a new timestamp request (ElapsedMilliseconds())
+    ;Timestamp_Counter.u           ; Counter for the timestamp request
     
     Timer_PPS.q
     Counter_PPS.i
     PPS.d
+  EndStructure
+  
+  Structure Userdata
+    Logged_In.i
+    
+    ID.s
+    Name.s
+    Region.s
+    
+    Center_X.i
+    Center_Y.i
+    
+    Timestamp_Next_Pixel.d        ; Point of time, when the next pixel is drawable (Get_Timestamp())
   EndStructure
   
   Structure Window_Canvas
@@ -158,6 +166,7 @@ DeclareModule Main
   
   ; ################################################### Variables ###################################################
   Global Main.Main
+  Global Userdata.Userdata
   Global Window.Window
   Global WebSocket.WebSocket
   Global Settings.Settings
@@ -372,7 +381,7 @@ Module Main
   EndProcedure
   
   Procedure Window_StatusBar_Update()
-    StatusBarText(Window\StatusBar, 0, StrD((Main\Timestamp_Next_Pixel - Get_Timestamp()) / 1000, 1) + "s", #PB_StatusBar_Right)
+    StatusBarText(Window\StatusBar, 0, StrD((Userdata\Timestamp_Next_Pixel - Get_Timestamp()) / 1000, 1) + "s", #PB_StatusBar_Right)
     StatusBarText(Window\StatusBar, 4, Str(ListSize(Input_Blocking())) + " inputs failed", #PB_StatusBar_Right)
   EndProcedure
   
@@ -606,16 +615,18 @@ Module Main
             EndIf
             If *Chunk\Image
               *Chunk\Image_Scaled = CopyImage(*Chunk\Image, #PB_Any)
-              *Chunk\Image_Scale = Settings\Zoom
-              If Settings\Zoom > 1
-                If Not ResizeImage(*Chunk\Image_Scaled, #Chunk_Size * Settings\Zoom, #Chunk_Size * Settings\Zoom, #PB_Image_Raw)
-                  FreeImage(*Chunk\Image_Scaled) : *Chunk\Image_Scaled = 0
-                  *Chunk\Image_Scale = 0
-                EndIf
-              Else
-                If Not ResizeImage(*Chunk\Image_Scaled, #Chunk_Size * Settings\Zoom, #Chunk_Size * Settings\Zoom, #PB_Image_Smooth)
-                  FreeImage(*Chunk\Image_Scaled) : *Chunk\Image_Scaled = 0
-                  *Chunk\Image_Scale = 0
+              If *Chunk\Image_Scaled
+                *Chunk\Image_Scale = Settings\Zoom
+                If Settings\Zoom > 1
+                  If Not ResizeImage(*Chunk\Image_Scaled, #Chunk_Size * Settings\Zoom, #Chunk_Size * Settings\Zoom, #PB_Image_Raw)
+                    FreeImage(*Chunk\Image_Scaled) : *Chunk\Image_Scaled = 0
+                    *Chunk\Image_Scale = 0
+                  EndIf
+                Else
+                  If Not ResizeImage(*Chunk\Image_Scaled, #Chunk_Size * Settings\Zoom, #Chunk_Size * Settings\Zoom, #PB_Image_Smooth)
+                    FreeImage(*Chunk\Image_Scaled) : *Chunk\Image_Scaled = 0
+                    *Chunk\Image_Scale = 0
+                  EndIf
                 EndIf
               EndIf
             EndIf
@@ -890,21 +901,21 @@ Module Main
   EndProcedure
   
   ; !!!!!!!!!!!!!!!! Not used anymore !!!!!!!!!!!!!!!!
-  Procedure WebSocket_Send_TimestampRequest()
-    If Not WebSocket\Connection
-      ProcedureReturn #False
-    EndIf
-    
-    Protected Temp.l
-    PokeA(@Temp+0, $75)
-    PokeA(@Temp+1, Main\Timestamp_Counter >> 8)
-    PokeA(@Temp+2, Main\Timestamp_Counter)
-    Main\Timestamp_Counter + 1
-    
-    WebsocketClient::Frame_Send(WebSocket\Connection, @Temp, 3)
-    
-    Debug "Sent TimestampRequest: ID:" + Str(Main\Timestamp_Counter - 1)
-  EndProcedure
+;   Procedure WebSocket_Send_TimestampRequest()
+;     If Not WebSocket\Connection
+;       ProcedureReturn #False
+;     EndIf
+;     
+;     Protected Temp.l
+;     PokeA(@Temp+0, $75)
+;     PokeA(@Temp+1, Main\Timestamp_Counter >> 8)
+;     PokeA(@Temp+2, Main\Timestamp_Counter)
+;     Main\Timestamp_Counter + 1
+;     
+;     WebsocketClient::Frame_Send(WebSocket\Connection, @Temp, 3)
+;     
+;     Debug "Sent TimestampRequest: ID:" + Str(Main\Timestamp_Counter - 1)
+;   EndProcedure
   
   ; !!!!!!!!!!!!!!!! Not used anymore !!!!!!!!!!!!!!!!
   Procedure WebSocket_Send_Input(X.w, Y.w, Color_Index.a, *Template.Templates::Object=#Null)
@@ -975,33 +986,33 @@ Module Main
                   Select PeekA(*Data)
                     Case $75 ; Current timestamp
                       ; !!!!!!!!!!!!!!!! Not used anymore !!!!!!!!!!!!!!!!
-                      Timestamp_ID = PeekA(*Data+1) << 8 + PeekA(*Data+2)
-                      For i = 0 To 7
-                        PokeA(@Timestamp + i, PeekA(*Data + 3 + 7 - i))
-                      Next
-                      ; #### Check if the timestamp is the answer to the latest request
-                      If Timestamp_ID = Main\Timestamp_Counter - 1
-                        Main\Timestamp_Offset = Timestamp - Main\Timestamp_TimeRequest
-                      EndIf
-                      Debug "Server Timestamp: ID:" + Str(Timestamp_ID) + " Time: " + StrD(Timestamp)
+;                       Timestamp_ID = PeekA(*Data+1) << 8 + PeekA(*Data+2)
+;                       For i = 0 To 7
+;                         PokeA(@Timestamp + i, PeekA(*Data + 3 + 7 - i))
+;                       Next
+;                       ; #### Check if the timestamp is the answer to the latest request
+;                       If Timestamp_ID = Main\Timestamp_Counter - 1
+;                         Main\Timestamp_Offset = Timestamp - Main\Timestamp_TimeRequest
+;                       EndIf
+;                       Debug "Server Timestamp: ID:" + Str(Timestamp_ID) + " Time: " + StrD(Timestamp)
                       
                     Case $57 ; Timestamp for next pixel
                       ; !!!!!!!!!!!!!!!! Not used anymore !!!!!!!!!!!!!!!!
-                      For i = 0 To 7
-                        PokeA(@Timestamp + i, PeekA(*Data + 1 + 7 - i))
-                      Next
-                      Main\Timestamp_Next_Pixel = Timestamp
-                      Debug "Timestamp Next Pixel: " + StrD(Timestamp)
-                      ; #### Update counter value
-                      ; If LastElement(Input_Check())
-                      ;   *Template = Input_Check()\Template
-                      ;   If *Template
-                      ;     *Template\Settings\Counter + 1
-                      ;     If Timestamp > Get_Timestamp() And Timestamp - Get_Timestamp() < 3600000
-                      ;       *Template\Settings\Total_Time + (Timestamp - Get_Timestamp())
-                      ;     EndIf
-                      ;   EndIf
-                      ; EndIf
+;                       For i = 0 To 7
+;                         PokeA(@Timestamp + i, PeekA(*Data + 1 + 7 - i))
+;                       Next
+;                       Main\Timestamp_Next_Pixel = Timestamp
+;                       Debug "Timestamp Next Pixel: " + StrD(Timestamp)
+;                       ; #### Update counter value
+;                       If LastElement(Input_Check())
+;                         *Template = Input_Check()\Template
+;                         If *Template
+;                           *Template\Settings\Counter + 1
+;                           If Timestamp > Get_Timestamp() And Timestamp - Get_Timestamp() < 3600000
+;                             *Template\Settings\Total_Time + (Timestamp - Get_Timestamp())
+;                           EndIf
+;                         EndIf
+;                       EndIf
                       
                     Case $C1 ; Pixel update
                       CX = PeekA(*Data+1) << 8 + PeekA(*Data+2)
@@ -1215,7 +1226,7 @@ Module Main
       EndIf
       If GetJSONMember(JSONValue(JSON), "wait")
         Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "wait"))
-        Main\Timestamp_Next_Pixel = Timestamp
+        Userdata\Timestamp_Next_Pixel = Timestamp
       EndIf
       If GetJSONMember(JSONValue(JSON), "errors")
         If GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0)
@@ -1223,6 +1234,7 @@ Module Main
             Error = GetJSONString(GetJSONMember(GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0), "msg"))
             Select Error
               Case "You are using a proxy!!!11!"
+                Userdata\Logged_In = #False ; Cause a re-login
             EndSelect
           EndIf
         EndIf
@@ -1255,29 +1267,76 @@ Module Main
     ProcedureReturn Result
   EndProcedure
   
-  Procedure HTTP_Post_Timesync(Fingerprint.s="")
+  ; !!!!!!!!!!!!!!!! Not used anymore !!!!!!!!!!!!!!!!
+;   Procedure HTTP_Post_Timesync(Fingerprint.s="")
+;     Protected Start = ElapsedMilliseconds()
+;     
+;     Protected JSON = CreateJSON(#PB_Any)
+;     Protected JSON_Object = SetJSONObject(JSONValue(JSON))
+;     SetJSONString(AddJSONMember(JSON_Object, "jsonrpc"), "2.0")
+;     SetJSONInteger(AddJSONMember(JSON_Object, "id"), Main\Timestamp_Counter) : Main\Timestamp_Counter + 1
+;     SetJSONString(AddJSONMember(JSON_Object, "method"), "timesync")
+;     
+;     Protected Response.s = HTTP_Post("http://pixelcanvas.io/api/timesync", ComposeJSON(JSON), 1000)
+;     FreeJSON(JSON)
+;     
+;     Main\Timestamp_TimeRequest = ElapsedMilliseconds()
+;     
+;     JSON = ParseJSON(#PB_Any, Response)
+;     If JSON
+;       If GetJSONMember(JSONValue(JSON), "id")
+;         Protected ID = GetJSONInteger(GetJSONMember(JSONValue(JSON), "id"))
+;       Else
+;         Debug "Timesync failed, no id returned"
+;       EndIf
+;       If GetJSONMember(JSONValue(JSON), "result")
+;         Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "result"))
+;         Main\Timestamp_Offset = Timestamp - Main\Timestamp_TimeRequest
+;       Else
+;         Debug "Timesync failed, no result returned"
+;       EndIf
+;       FreeJSON(JSON)
+;     EndIf
+;     
+;   EndProcedure
+  
+  Procedure HTTP_Post_Me(Fingerprint.s="")
     Protected Start = ElapsedMilliseconds()
     
     Protected JSON = CreateJSON(#PB_Any)
     Protected JSON_Object = SetJSONObject(JSONValue(JSON))
-    SetJSONString(AddJSONMember(JSON_Object, "jsonrpc"), "2.0")
-    SetJSONInteger(AddJSONMember(JSON_Object, "id"), Main\Timestamp_Counter) : Main\Timestamp_Counter + 1
-    SetJSONString(AddJSONMember(JSON_Object, "method"), "timesync")
-    
-    Protected Response.s = HTTP_Post("http://pixelcanvas.io/api/timesync", ComposeJSON(JSON), 1000)
-    FreeJSON(JSON)
+    SetJSONString(AddJSONMember(JSON_Object, "fingerprint"), Fingerprint)
     
     Main\Timestamp_TimeRequest = ElapsedMilliseconds()
     
+    Protected Response.s = HTTP_Post("http://pixelcanvas.io/api/me", ComposeJSON(JSON), 1000)
+    FreeJSON(JSON)
+    
     JSON = ParseJSON(#PB_Any, Response)
     If JSON
-      Protected ID = GetJSONInteger(GetJSONMember(JSONValue(JSON), "id"))
-      If GetJSONMember(JSONValue(JSON), "result")
-        Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "result"))
-        Main\Timestamp_Offset = Timestamp - Main\Timestamp_TimeRequest
-      Else
-        Debug "Timesync failed"
+      If GetJSONMember(JSONValue(JSON), "id")
+        Userdata\ID = GetJSONString(GetJSONMember(JSONValue(JSON), "id"))
       EndIf
+      If GetJSONMember(JSONValue(JSON), "name")
+        Userdata\Name = GetJSONString(GetJSONMember(JSONValue(JSON), "name"))
+      EndIf
+      If GetJSONMember(JSONValue(JSON), "region")
+        Userdata\Region = GetJSONString(GetJSONMember(JSONValue(JSON), "region"))
+      EndIf
+      If GetJSONMember(JSONValue(JSON), "center")
+        Userdata\Center_X = GetJSONInteger(GetJSONElement(GetJSONMember(JSONValue(JSON), "center"), 0))
+        Userdata\Center_Y = GetJSONInteger(GetJSONElement(GetJSONMember(JSONValue(JSON), "center"), 1))
+      EndIf
+      If GetJSONMember(JSONValue(JSON), "wait") And JSONType(GetJSONMember(JSONValue(JSON), "wait")) = #PB_JSON_Number
+        Userdata\Timestamp_Next_Pixel = GetJSONInteger(GetJSONMember(JSONValue(JSON), "wait"))
+      EndIf
+      If GetJSONMember(JSONValue(JSON), "serverTime")
+        Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "serverTime"))
+        Main\Timestamp_Offset = Timestamp - Main\Timestamp_TimeRequest
+      EndIf
+      
+      Userdata\Logged_In = #True
+      
       FreeJSON(JSON)
     EndIf
     
@@ -1309,13 +1368,18 @@ Module Main
       Next
     EndIf
     
-    ; #### Timesync request
-    If Main\Timestamp_Next_TimeRequest < Date()
-      Main\Timestamp_Next_TimeRequest = Date() + 30
-      
-      HTTP_Post_Timesync(Settings\Fingerprint)
-      
+    ; #### Login
+    If Not Userdata\Logged_In
+      HTTP_Post_Me(Settings\Fingerprint)
     EndIf
+    
+    ; #### Timesync request
+    ;If Main\Timestamp_Next_TimeRequest < Date()
+    ;  Main\Timestamp_Next_TimeRequest = Date() + 30
+    ;  
+    ;  HTTP_Post_Timesync(Settings\Fingerprint)
+    ;  
+    ;EndIf
     
     ; #### Download chunk collections
     ForEach Chunk_Collection()
@@ -1408,13 +1472,14 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 20
+; CursorPosition = 1236
+; FirstLine = 1208
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 467
-; EnableBuildCount = 57
+; EnableCompileCount = 473
+; EnableBuildCount = 59
 ; EnableExeConstant
