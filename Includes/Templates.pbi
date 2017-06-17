@@ -863,10 +863,7 @@ Module Templates
       ProcedureReturn #False
     EndIf
     
-    If Abs(Correct - *Object\Settings\Correct) > 30
-      ClearList(*Object\Change())
-    EndIf
-    
+    ; #### Calculate the rate
     If Correct <> *Object\Settings\Correct And Correct > 0
       LastElement(*Object\Change())
       AddElement(*Object\Change())
@@ -1032,8 +1029,8 @@ Module Templates
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 999
-; FirstLine = 980
+; CursorPosition = 865
+; FirstLine = 855
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe

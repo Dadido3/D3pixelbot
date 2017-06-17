@@ -18,7 +18,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0939
+  #Version = 0941
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -57,7 +57,6 @@ DeclareModule Main
     Quit.i
     
     Timestamp_Offset.d            ; Server timestamp offset (to ElapsedMilliseconds())
-    Timestamp_TimeRequest.q       ; Point of time, when the current request was sent (ElapsedMilliseconds())
     ;Timestamp_Next_TimeRequest.q  ; Point of time, when to make a new timestamp request (ElapsedMilliseconds())
     ;Timestamp_Counter.u           ; Counter for the timestamp request
     
@@ -1301,16 +1300,16 @@ Module Main
 ;   EndProcedure
   
   Procedure HTTP_Post_Me(Fingerprint.s="")
-    Protected Start = ElapsedMilliseconds()
+    Protected Time_Request = ElapsedMilliseconds()
     
     Protected JSON = CreateJSON(#PB_Any)
     Protected JSON_Object = SetJSONObject(JSONValue(JSON))
     SetJSONString(AddJSONMember(JSON_Object, "fingerprint"), Fingerprint)
     
-    Main\Timestamp_TimeRequest = ElapsedMilliseconds()
-    
     Protected Response.s = HTTP_Post("http://pixelcanvas.io/api/me", ComposeJSON(JSON), 1000)
     FreeJSON(JSON)
+    
+    Protected Time_Response = ElapsedMilliseconds()
     
     JSON = ParseJSON(#PB_Any, Response)
     If JSON
@@ -1332,7 +1331,7 @@ Module Main
       EndIf
       If GetJSONMember(JSONValue(JSON), "serverTime")
         Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "serverTime"))
-        Main\Timestamp_Offset = Timestamp - Main\Timestamp_TimeRequest
+        Main\Timestamp_Offset = Timestamp - Time_Response;(Time_Request + Time_Response) / 2
       EndIf
       
       Userdata\Logged_In = #True
@@ -1472,14 +1471,14 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 1236
-; FirstLine = 1208
+; CursorPosition = 1233
+; FirstLine = 1210
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 473
-; EnableBuildCount = 59
+; EnableCompileCount = 479
+; EnableBuildCount = 62
 ; EnableExeConstant
