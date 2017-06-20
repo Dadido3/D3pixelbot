@@ -18,7 +18,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0941
+  #Version = 0943
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -56,7 +56,7 @@ DeclareModule Main
   Structure Main
     Quit.i
     
-    Timestamp_Offset.d            ; Server timestamp offset (to ElapsedMilliseconds())
+    ;Timestamp_Offset.q            ; Server timestamp offset (to ElapsedMilliseconds())
     ;Timestamp_Next_TimeRequest.q  ; Point of time, when to make a new timestamp request (ElapsedMilliseconds())
     ;Timestamp_Counter.u           ; Counter for the timestamp request
     
@@ -75,7 +75,7 @@ DeclareModule Main
     Center_X.i
     Center_Y.i
     
-    Timestamp_Next_Pixel.d        ; Point of time, when the next pixel is drawable (Get_Timestamp())
+    Timestamp_Next_Pixel.q        ; Point of time, when the next pixel is drawable (Get_Timestamp())
   EndStructure
   
   Structure Window_Canvas
@@ -180,7 +180,7 @@ DeclareModule Main
   ; ################################################### Declares ####################################################
   Declare.d Color_Distance(Color_A.l, Color_B.l)
   Declare.d Color_Distance_Squared(Color_A.l, Color_B.l)
-  Declare.d Get_Timestamp()
+  Declare.q Get_Timestamp()
   Declare   Get_Color_Index(Color)
   
   Declare   Image_Get(X.i, Y.i, Width.i, Height.i)
@@ -297,8 +297,8 @@ Module Main
     
   EndProcedure
   
-  Procedure.d Get_Timestamp()
-    ProcedureReturn Main\Timestamp_Offset + ElapsedMilliseconds()
+  Procedure.q Get_Timestamp()
+    ProcedureReturn ElapsedMilliseconds(); + Main\Timestamp_Offset
   EndProcedure
   
   Procedure Get_Color_Index(Color)
@@ -715,6 +715,11 @@ Module Main
     Debug "Downloaded chunk collection: CCX:" + CCX + " CCY:" + CCY + " Radius:" + #Chunk_Collection_Radius
     
     If Not *Memory
+      ProcedureReturn #False
+    EndIf
+    
+    If MemorySize(*Memory) <> (#Chunk_Size * #Chunk_Size) * ((#Chunk_Collection_Radius * 2 + 1) * (#Chunk_Collection_Radius * 2 + 1)) / 2
+      Debug "Downloaded chunk collection: Received memory size doesn't match!"
       ProcedureReturn #False
     EndIf
     
@@ -1223,9 +1228,8 @@ Module Main
       If GetJSONMember(JSONValue(JSON), "success")
         Protected Success = GetJSONBoolean(GetJSONMember(JSONValue(JSON), "success"))
       EndIf
-      If GetJSONMember(JSONValue(JSON), "wait")
-        Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "wait"))
-        Userdata\Timestamp_Next_Pixel = Timestamp
+      If GetJSONMember(JSONValue(JSON), "waitSeconds")
+        Userdata\Timestamp_Next_Pixel = Get_Timestamp() + GetJSONInteger(GetJSONMember(JSONValue(JSON), "waitSeconds")) * 1000
       EndIf
       If GetJSONMember(JSONValue(JSON), "errors")
         If GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0)
@@ -1256,8 +1260,8 @@ Module Main
       Update_Pixel(X, Y, Palette(Color_Index)\Color)
       
       *Template\Settings\Counter + 1
-      If Timestamp > Get_Timestamp() And Timestamp - Get_Timestamp() < 3600000
-        *Template\Settings\Total_Time + (Timestamp - Get_Timestamp())
+      If Userdata\Timestamp_Next_Pixel > Get_Timestamp() And Userdata\Timestamp_Next_Pixel - Get_Timestamp() < 3600000
+        *Template\Settings\Total_Time + (Userdata\Timestamp_Next_Pixel - Get_Timestamp())
       EndIf
       
       Result = #Input_Result_Success
@@ -1326,13 +1330,13 @@ Module Main
         Userdata\Center_X = GetJSONInteger(GetJSONElement(GetJSONMember(JSONValue(JSON), "center"), 0))
         Userdata\Center_Y = GetJSONInteger(GetJSONElement(GetJSONMember(JSONValue(JSON), "center"), 1))
       EndIf
-      If GetJSONMember(JSONValue(JSON), "wait") And JSONType(GetJSONMember(JSONValue(JSON), "wait")) = #PB_JSON_Number
-        Userdata\Timestamp_Next_Pixel = GetJSONInteger(GetJSONMember(JSONValue(JSON), "wait"))
+      If GetJSONMember(JSONValue(JSON), "waitSeconds") And JSONType(GetJSONMember(JSONValue(JSON), "waitSeconds")) = #PB_JSON_Number
+        Userdata\Timestamp_Next_Pixel = Get_Timestamp() + GetJSONInteger(GetJSONMember(JSONValue(JSON), "waitSeconds")) * 1000
       EndIf
-      If GetJSONMember(JSONValue(JSON), "serverTime")
-        Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "serverTime"))
-        Main\Timestamp_Offset = Timestamp - Time_Response;(Time_Request + Time_Response) / 2
-      EndIf
+      ;If GetJSONMember(JSONValue(JSON), "serverTime")
+      ;  Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "serverTime"))
+      ;  Main\Timestamp_Offset = Timestamp - Time_Response;(Time_Request + Time_Response) / 2
+      ;EndIf
       
       Userdata\Logged_In = #True
       
@@ -1471,14 +1475,13 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 1233
-; FirstLine = 1210
+; CursorPosition = 20
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 479
-; EnableBuildCount = 62
+; EnableCompileCount = 485
+; EnableBuildCount = 64
 ; EnableExeConstant
