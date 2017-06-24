@@ -994,7 +994,7 @@ Module Templates
     Next
     
     ; #### Draw templates
-    If Main::Userdata\Timestamp_Next_Pixel + 1000 < Main::Get_Timestamp() And Timer_Draw < ElapsedMilliseconds()
+    If Main::Userdata\Timestamp_Next_Pixel + 0 < Main::Get_Timestamp() And Timer_Draw < ElapsedMilliseconds()
       Timer_Draw = ElapsedMilliseconds() + 20000
       ForEach Object()
         If Object()\Settings\Active
@@ -1029,8 +1029,8 @@ Module Templates
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 865
-; FirstLine = 855
+; CursorPosition = 996
+; FirstLine = 977
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe

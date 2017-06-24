@@ -18,7 +18,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0943
+  #Version = 0944
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -1475,13 +1475,14 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 20
+; CursorPosition = 1347
+; FirstLine = 1347
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 485
-; EnableBuildCount = 64
+; EnableCompileCount = 486
+; EnableBuildCount = 65
 ; EnableExeConstant
