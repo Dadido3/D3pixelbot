@@ -18,7 +18,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0944
+  #Version = 0945
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -1228,7 +1228,7 @@ Module Main
       If GetJSONMember(JSONValue(JSON), "success")
         Protected Success = GetJSONBoolean(GetJSONMember(JSONValue(JSON), "success"))
       EndIf
-      If GetJSONMember(JSONValue(JSON), "waitSeconds")
+      If GetJSONMember(JSONValue(JSON), "waitSeconds") And JSONType(GetJSONMember(JSONValue(JSON), "waitSeconds")) = #PB_JSON_Number
         Userdata\Timestamp_Next_Pixel = Get_Timestamp() + GetJSONInteger(GetJSONMember(JSONValue(JSON), "waitSeconds")) * 1000
       EndIf
       If GetJSONMember(JSONValue(JSON), "errors")
@@ -1238,6 +1238,8 @@ Module Main
             Select Error
               Case "You are using a proxy!!!11!"
                 Userdata\Logged_In = #False ; Cause a re-login
+              Case "You must provide a token"
+                 Userdata\Timestamp_Next_Pixel = Get_Timestamp() + 1000 * 60
             EndSelect
           EndIf
         EndIf
@@ -1474,15 +1476,14 @@ Module Main
   EndDataSection
   
 EndModule
-; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 1347
-; FirstLine = 1347
+; IDE Options = PureBasic 5.60 (Windows - x64)
+; CursorPosition = 20
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 486
-; EnableBuildCount = 65
+; EnableCompileCount = 488
+; EnableBuildCount = 66
 ; EnableExeConstant
