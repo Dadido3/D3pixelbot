@@ -18,7 +18,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0945
+  #Version = 0946
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -1212,10 +1212,13 @@ Module Main
       EndIf
     Next
     
+    Protected Z = X + Y
+    
     Protected JSON = CreateJSON(#PB_Any)
     Protected JSON_Object = SetJSONObject(JSONValue(JSON))
     SetJSONInteger(AddJSONMember(JSON_Object, "x"), X)
     SetJSONInteger(AddJSONMember(JSON_Object, "y"), Y)
+    SetJSONInteger(AddJSONMember(JSON_Object, "z"), Z)
     SetJSONInteger(AddJSONMember(JSON_Object, "color"), Color_Index)
     SetJSONString(AddJSONMember(JSON_Object, "fingerprint"), Fingerprint)
     SetJSONNull(AddJSONMember(JSON_Object, "token"))
@@ -1477,13 +1480,14 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 (Windows - x64)
-; CursorPosition = 20
+; CursorPosition = 1214
+; FirstLine = 1192
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 488
-; EnableBuildCount = 66
+; EnableCompileCount = 490
+; EnableBuildCount = 67
 ; EnableExeConstant
