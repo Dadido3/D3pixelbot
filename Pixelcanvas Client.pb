@@ -1212,13 +1212,11 @@ Module Main
       EndIf
     Next
     
-    Protected Z = X + Y
-    
     Protected JSON = CreateJSON(#PB_Any)
     Protected JSON_Object = SetJSONObject(JSONValue(JSON))
     SetJSONInteger(AddJSONMember(JSON_Object, "x"), X)
     SetJSONInteger(AddJSONMember(JSON_Object, "y"), Y)
-    SetJSONInteger(AddJSONMember(JSON_Object, "z"), Z)
+    SetJSONInteger(AddJSONMember(JSON_Object, "h"), X + Y + 42)
     SetJSONInteger(AddJSONMember(JSON_Object, "color"), Color_Index)
     SetJSONString(AddJSONMember(JSON_Object, "fingerprint"), Fingerprint)
     SetJSONNull(AddJSONMember(JSON_Object, "token"))
@@ -1479,15 +1477,15 @@ Module Main
   EndDataSection
   
 EndModule
-; IDE Options = PureBasic 5.60 (Windows - x64)
-; CursorPosition = 1214
-; FirstLine = 1192
+; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
+; CursorPosition = 1218
+; FirstLine = 1200
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 490
-; EnableBuildCount = 67
+; EnableCompileCount = 491
+; EnableBuildCount = 68
 ; EnableExeConstant
