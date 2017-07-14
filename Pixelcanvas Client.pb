@@ -241,6 +241,9 @@ Module Main
   Global Icon_time_go = CatchImage(#PB_Any, ?Icon_time_go)
   Global Icon_key = CatchImage(#PB_Any, ?Icon_key)
   
+  ; ################################################### Regular Expressions #########################################
+  Global RegEx_Duck = CreateRegularExpression(#PB_Any, "DUCK=(?<Duck>[a-z])")
+  
   ; ################################################### Procedures ##################################################
   ; #### Works perfectly, A and B can be positive or negative. B must not be zero!
   Procedure.q Quad_Divide_Floor(A.q, B.q)
@@ -1212,11 +1215,27 @@ Module Main
       EndIf
     Next
     
+    ; #### Read cookie to get duck
+    Protected Cookie_Size.i, Duck.s
+    InternetGetCookie_("http://pixelcanvas.io", #Null, #Null, @Cookie_Size)
+    If Cookie_Size
+      Protected *Cookie_Buffer = AllocateMemory(Cookie_Size)
+      InternetGetCookie_("http://pixelcanvas.io", #Null, *Cookie_Buffer, @Cookie_Size)
+      If ExamineRegularExpression(RegEx_Duck, PeekS(*Cookie_Buffer, Cookie_Size))
+        If NextRegularExpressionMatch(RegEx_Duck)
+          Duck = RegularExpressionNamedGroup(RegEx_Duck, "Duck")
+        EndIf
+      EndIf
+      FreeMemory(*Cookie_Buffer)
+    Else
+      ProcedureReturn #Input_Result_Global_Error
+    EndIf
+    
     Protected JSON = CreateJSON(#PB_Any)
     Protected JSON_Object = SetJSONObject(JSONValue(JSON))
     SetJSONInteger(AddJSONMember(JSON_Object, "x"), X)
     SetJSONInteger(AddJSONMember(JSON_Object, "y"), Y)
-    SetJSONInteger(AddJSONMember(JSON_Object, "h"), X + Y + 42)
+    SetJSONInteger(AddJSONMember(JSON_Object, Duck), X + Y + 22)
     SetJSONInteger(AddJSONMember(JSON_Object, "color"), Color_Index)
     SetJSONString(AddJSONMember(JSON_Object, "fingerprint"), Fingerprint)
     SetJSONNull(AddJSONMember(JSON_Object, "token"))
@@ -1326,15 +1345,15 @@ Module Main
       If GetJSONMember(JSONValue(JSON), "name")
         Userdata\Name = GetJSONString(GetJSONMember(JSONValue(JSON), "name"))
       EndIf
-      If GetJSONMember(JSONValue(JSON), "region")
-        Userdata\Region = GetJSONString(GetJSONMember(JSONValue(JSON), "region"))
-      EndIf
+      ;If GetJSONMember(JSONValue(JSON), "region")
+      ;  Userdata\Region = GetJSONString(GetJSONMember(JSONValue(JSON), "region"))
+      ;EndIf
       If GetJSONMember(JSONValue(JSON), "center")
         Userdata\Center_X = GetJSONInteger(GetJSONElement(GetJSONMember(JSONValue(JSON), "center"), 0))
         Userdata\Center_Y = GetJSONInteger(GetJSONElement(GetJSONMember(JSONValue(JSON), "center"), 1))
       EndIf
       If GetJSONMember(JSONValue(JSON), "waitSeconds") And JSONType(GetJSONMember(JSONValue(JSON), "waitSeconds")) = #PB_JSON_Number
-        Userdata\Timestamp_Next_Pixel = Get_Timestamp() + GetJSONInteger(GetJSONMember(JSONValue(JSON), "waitSeconds")) * 1000
+        Userdata\Timestamp_Next_Pixel = Get_Timestamp() + GetJSONDouble(GetJSONMember(JSONValue(JSON), "waitSeconds")) * 1000
       EndIf
       ;If GetJSONMember(JSONValue(JSON), "serverTime")
       ;  Protected Timestamp = GetJSONInteger(GetJSONMember(JSONValue(JSON), "serverTime"))
@@ -1478,14 +1497,14 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 1218
-; FirstLine = 1200
+; CursorPosition = 1349
+; FirstLine = 1322
 ; Folding = ------
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 491
-; EnableBuildCount = 68
+; EnableCompileCount = 502
+; EnableBuildCount = 70
 ; EnableExeConstant
