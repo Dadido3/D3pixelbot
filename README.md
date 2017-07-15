@@ -6,7 +6,8 @@ Contrary to similar projects this client is made to be configurable and usable w
 Using this tool doesn't need any type of programming skills.
 To create a job/template you just have to click "create" and change some settings (Image (PNG) path, position, placing strategy, ...) over the user interface.
 
-As this project is just for the fun, some things are considered possible future features (But probably will never be implemented):
+As this project is just for the fun, some of the things that are considered possible future features may never be implemented.
+These include:
 - Captcha requester (Or even an interface to external captcha solving services)
 - Managing of multiple users (Proxies, VPNs or possibly lightweight clients which connect to a "mother client")
 - Manual pixel placement (But queued)
@@ -24,4 +25,5 @@ Afterwards the data could be used to create timelapses of nearly any part of the
 - There is probably more small stuff, but the client does its job.
 
 ## Screenshots
+A client running for a month:
 ![<Image missing>](/Screenshots/V0.946.png)
