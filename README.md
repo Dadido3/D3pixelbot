@@ -2,8 +2,8 @@ Pixelcanvas.io Custom Client
 =====
 
 This is a custom client / bot for Pixelcanvas.io.
-Contrary to similar projects this client is made to be configurable and usable without any hassles.
-Using this tool doesn't need any type of programming skills.
+In contrast to similar projects this client is made to be configurable and usable without any hassles.
+Programming experience isn't necessary.
 To create a job/template you just have to click "create" and change some settings (Image (PNG) path, position, placing strategy, ...) over the user interface.
 
 As this project is just for the fun, some of the things that are considered possible future features may never be implemented.
