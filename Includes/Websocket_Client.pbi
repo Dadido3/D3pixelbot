@@ -348,11 +348,11 @@ Module WebsocketClient
   
 EndModule
 ; IDE Options = PureBasic 5.60 (Windows - x64)
-; CursorPosition = 340
-; FirstLine = 272
+; CursorPosition = 324
+; FirstLine = 305
 ; Folding = --
 ; EnableXP
 ; DisableDebugger
-; EnableCompileCount = 2
+; EnableCompileCount = 3
 ; EnableBuildCount = 0
 ; EnableExeConstant

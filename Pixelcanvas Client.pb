@@ -7,7 +7,9 @@
 ;   - Project started
 ; 
 ; ##################################################### External Includes ###########################################
-XIncludeFile "Includes/Proxy.pbi"
+XIncludeFile "Includes/Crash.pbi"
+XIncludeFile "Includes/Helper.pbi"
+;XIncludeFile "Includes/Proxy.pbi"
 XIncludeFile "Includes/Websocket_Client.pbi"
 
 ; ##################################################### Includes ####################################################
@@ -18,7 +20,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0946
+  #Version = 0950
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -31,6 +33,9 @@ DeclareModule Main
   
   #Colors = 16
   
+  #Filename_Settings = "Settings.txt"
+  #Filename_Templates = "Templates.txt"
+  
   Enumeration 1
     #Menu_Dummy
     
@@ -41,6 +46,8 @@ DeclareModule Main
     #Menu_Canvas_AutoReload
     
     #Menu_Settings_Change_Fingerprint
+    
+    #Menu_About
     
     #Menu_Exit
   EndEnumeration
@@ -63,6 +70,8 @@ DeclareModule Main
     Timer_PPS.q
     Counter_PPS.i
     PPS.d
+    
+    Path_AppData.s
   EndStructure
   
   Structure Userdata
@@ -178,8 +187,6 @@ DeclareModule Main
   ; ################################################### Macros ######################################################
   
   ; ################################################### Declares ####################################################
-  Declare.d Color_Distance(Color_A.l, Color_B.l)
-  Declare.d Color_Distance_Squared(Color_A.l, Color_B.l)
   Declare.q Get_Timestamp()
   Declare   Get_Color_Index(Color)
   
@@ -196,10 +203,14 @@ DeclareModule Main
 EndDeclareModule
 
 ; ##################################################### Includes ####################################################
+XIncludeFile "Includes/About.pbi"
+
 XIncludeFile "Includes/Templates.pbi"
 
 Module Main
   EnableExplicit
+  
+  UseModule Helper
   
   InitNetwork()
   
@@ -240,50 +251,23 @@ Module Main
   Global Icon_map_go = CatchImage(#PB_Any, ?Icon_map_go)
   Global Icon_time_go = CatchImage(#PB_Any, ?Icon_time_go)
   Global Icon_key = CatchImage(#PB_Any, ?Icon_key)
+  Global Icon_information = CatchImage(#PB_Any, ?Icon_information)
   
   ; ################################################### Regular Expressions #########################################
   Global RegEx_Duck = CreateRegularExpression(#PB_Any, "DUCK=(?<Duck>[a-z])")
   
   ; ################################################### Procedures ##################################################
-  ; #### Works perfectly, A and B can be positive or negative. B must not be zero!
-  Procedure.q Quad_Divide_Floor(A.q, B.q)
-    Protected Temp.q = A / B
-    If (((a ! b) < 0) And (a % b <> 0))
-      ProcedureReturn Temp - 1
-    Else
-      ProcedureReturn Temp
-    EndIf
-  EndProcedure
-  
-  ; #### Works perfectly, A and B can be positive or negative. B must not be zero!
-  Procedure.q Quad_Divide_Ceil(A.q, B.q)
-    Protected Temp.q = A / B
-    If (((a ! b) >= 0) And (a % b <> 0))
-      ProcedureReturn Temp + 1
-    Else
-      ProcedureReturn Temp
-    EndIf
-  EndProcedure
-  
-  Procedure.d Color_Distance(Color_A.l, Color_B.l)
-    ProcedureReturn Sqr(Pow(Red(Color_A) - Red(Color_B),2) + Pow(Green(Color_A) - Green(Color_B),2) + Pow(Blue(Color_A) - Blue(Color_B),2))
-  EndProcedure
-  
-  Procedure.d Color_Distance_Squared(Color_A.l, Color_B.l)
-    ProcedureReturn Pow(Red(Color_A) - Red(Color_B),2) + Pow(Green(Color_A) - Green(Color_B),2) + Pow(Blue(Color_A) - Blue(Color_B),2)
-  EndProcedure
-  
-  Procedure Settings_Save()
+  Procedure Settings_Save(Filename.s)
     Protected JSON = CreateJSON(#PB_Any)
     If JSON
       InsertJSONStructure(JSONValue(JSON), Settings, Settings)
-      SaveJSON(JSON, "Data\Main_Settings.txt", #PB_JSON_PrettyPrint)
+      SaveJSON(JSON, Filename, #PB_JSON_PrettyPrint)
       FreeJSON(JSON)
     EndIf
   EndProcedure
   
-  Procedure Settings_Load()
-    Protected JSON = LoadJSON(#PB_Any, "Data\Main_Settings.txt")
+  Procedure Settings_Load(Filename.s)
+    Protected JSON = LoadJSON(#PB_Any, Filename)
     If JSON
       ExtractJSONStructure(JSONValue(JSON), Settings, Settings)
       FreeJSON(JSON)
@@ -427,6 +411,9 @@ Module Main
       Case #Menu_Settings_Change_Fingerprint
         Settings\Fingerprint = InputRequester("Change fingerprint", "Enter the new fingerprint", Settings\Fingerprint)
         
+      Case #Menu_About
+        About::Open()
+        
       Case #Menu_Exit
         Main\Quit = #True
         
@@ -477,9 +464,9 @@ Module Main
     MenuTitle("Settings")
     MenuItem(#Menu_Settings_Change_Fingerprint, "Change fingerprint", ImageID(Icon_key))
     
-    ;MenuTitle("Help")
+    MenuTitle("Help")
     ;MenuItem(#Menu_Dummy, "Hilfe")
-    ;MenuItem(#Menu_About, "About", ImageID(Icon_About))
+    MenuItem(#Menu_About, "About", ImageID(Icon_information))
     
     ; #### Toolbar
     Window\ToolBar = CreateToolBar(#PB_Any, WindowID(Window\ID), #PB_ToolBar_Text)
@@ -488,11 +475,11 @@ Module Main
       CloseWindow(Window\ID)
       ProcedureReturn #False
     EndIf
-    ToolBarImageButton(#Menu_Templates, ImageID(Icon_images), #PB_ToolBar_Normal, "Templates")
-    ToolBarImageButton(#Menu_Canvas_Load, ImageID(Icon_map), #PB_ToolBar_Normal, "Load viewport")
-    ToolBarImageButton(#Menu_Canvas_Reload, ImageID(Icon_map_go), #PB_ToolBar_Normal, "Reload all")
-    ToolBarImageButton(#Menu_Canvas_AutoReload, ImageID(Icon_time_go), #PB_ToolBar_Toggle, "Autoreload")
-    ToolBarImageButton(#Menu_Settings_Change_Fingerprint, ImageID(Icon_key), #PB_ToolBar_Normal, "Fingerprint")
+    ToolBarImageButton(#Menu_Templates, ImageID(Icon_images), #PB_ToolBar_Normal, "Templates") : ToolBarToolTip(Window\ToolBar, #Menu_Templates, "Manage templates") 
+    ToolBarImageButton(#Menu_Canvas_Load, ImageID(Icon_map), #PB_ToolBar_Normal, "Load viewport") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Load, "Load all unloaded chunks inside the viewport") 
+    ToolBarImageButton(#Menu_Canvas_Reload, ImageID(Icon_map_go), #PB_ToolBar_Normal, "Reload all") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Reload, "Reload all chunks") 
+    ToolBarImageButton(#Menu_Canvas_AutoReload, ImageID(Icon_time_go), #PB_ToolBar_Toggle, "Autoreload") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_AutoReload, "Reload all chunks every 60 minutes (Shouldn't be used anymore)") 
+    ToolBarImageButton(#Menu_Settings_Change_Fingerprint, ImageID(Icon_key), #PB_ToolBar_Normal, "Fingerprint") : ToolBarToolTip(Window\ToolBar, #Menu_Settings_Change_Fingerprint, "Change fingerprint (Shouldn't be used anymore)") 
     
     SetToolBarButtonState(Window\ToolBar, #Menu_Canvas_AutoReload, Settings\Canvas_AutoReload)
     
@@ -1462,11 +1449,20 @@ Module Main
     EndIf
     
     Templates::Main()
+    About::Main()
+    
   EndProcedure
   
   ; ################################################### Initialisation ##############################################
-  Settings_Load()
-  Templates::Settings_Load()
+  If FileSize("Portable/") = -2
+    Main\Path_AppData = "Portable/"
+  Else
+    Main\Path_AppData = Helper::SHGetFolderPath(#CSIDL_APPDATA) + "/D3/Pixelcanvas Client/"
+    MakeSureDirectoryPathExists(Main\Path_AppData)
+  EndIf
+  
+  Settings_Load(Main\Path_AppData + #Filename_Settings)
+  Templates::Settings_Load(Main\Path_AppData + #Filename_Templates)
   
   If Not Window_Open(1000, 600)
     End
@@ -1483,8 +1479,8 @@ Module Main
   Until Main\Quit
   
   ; ################################################### End #########################################################
-  Templates::Settings_Save()
-  Settings_Save()
+  Templates::Settings_Save(Main\Path_AppData + #Filename_Templates)
+  Settings_Save(Main\Path_AppData + #Filename_Settings)
   
   ; ################################################### Data Sections ###############################################
   DataSection
@@ -1493,18 +1489,20 @@ Module Main
     Icon_map_go:        : IncludeBinary "Data/Icons/map_go.png"
     Icon_time_go:       : IncludeBinary "Data/Icons/time_go.png"
     Icon_key:           : IncludeBinary "Data/Icons/key.png"
+    Icon_information:   : IncludeBinary "Data/Icons/information.png"
   EndDataSection
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 1349
-; FirstLine = 1322
-; Folding = ------
+; CursorPosition = 892
+; FirstLine = 870
+; Folding = -----
 ; EnableThread
 ; EnableXP
 ; EnableUser
 ; Executable = Pixelcanvas Client.exe
+; DisableDebugger
 ; EnablePurifier = 1,1,1,1
-; EnableCompileCount = 502
+; EnableCompileCount = 512
 ; EnableBuildCount = 70
 ; EnableExeConstant

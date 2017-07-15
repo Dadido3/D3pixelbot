@@ -123,8 +123,8 @@ DeclareModule Templates
   Global NewList Object.Object()
   
   ; ##################################################### Functions #################################################
-  Declare   Settings_Save()
-  Declare   Settings_Load()
+  Declare   Settings_Save(Filename.s)
+  Declare   Settings_Load(Filename.s)
   
   Declare   Window_Open()
   
@@ -140,6 +140,7 @@ EndDeclareModule
 ; ###################################################################################################################
 
 Module Templates
+  UseModule Helper
   
   ; ##################################################### Includes ####################################################
   
@@ -180,7 +181,7 @@ Module Templates
     DeleteElement(Object())
   EndProcedure
   
-  Procedure Settings_Save()
+  Procedure Settings_Save(Filename.s)
     Protected JSON_Array, JSON_Element
     
     Protected JSON = CreateJSON(#PB_Any)
@@ -192,13 +193,13 @@ Module Templates
         InsertJSONStructure(JSON_Element, Object()\Settings, Object_Settings)
       Next
       
-      SaveJSON(JSON, "Data\Settings.txt", #PB_JSON_PrettyPrint)
+      SaveJSON(JSON, Filename, #PB_JSON_PrettyPrint)
       FreeJSON(JSON)
     EndIf
     
   EndProcedure
   
-  Procedure Settings_Load()
+  Procedure Settings_Load(Filename.s)
     Protected i
     Protected JSON_Element
     
@@ -206,7 +207,7 @@ Module Templates
       Object_Delete(Object())
     Wend
     
-    Protected JSON = LoadJSON(#PB_Any, "Data\Settings.txt")
+    Protected JSON = LoadJSON(#PB_Any, Filename)
     If JSON
       
       For i = 0 To JSONArraySize(JSONValue(JSON)) - 1
@@ -720,7 +721,7 @@ Module Templates
   
   Procedure Reorder_Colordifference(*Object.Object, Options=#PB_Sort_Ascending)
     ForEach *Object\Difference()
-      *Object\Difference()\Reorder_Temp = Main::Color_Distance_Squared(*Object\Difference()\Canvas_Color, *Object\Difference()\Template_Color)
+      *Object\Difference()\Reorder_Temp = Color_Distance_Squared(*Object\Difference()\Canvas_Color, *Object\Difference()\Template_Color)
     Next
     
     SortStructuredList(*Object\Difference(), Options, OffsetOf(Difference\Reorder_Temp), TypeOf(Difference\Reorder_Temp))
@@ -1008,9 +1009,10 @@ Module Templates
       Next
     EndIf
     
+    ; #### Safe templates every 10 seconds
     If Timer_Settings < ElapsedMilliseconds()
       Timer_Settings = ElapsedMilliseconds() + 10000
-      Settings_Save()
+      Settings_Save(Main::Main\Path_AppData + Main::#Filename_Templates)
     EndIf
     
     If Window\ID
@@ -1029,8 +1031,8 @@ Module Templates
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 996
-; FirstLine = 977
+; CursorPosition = 1013
+; FirstLine = 979
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe
