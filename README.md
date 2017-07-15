@@ -16,6 +16,11 @@ These include:
 (These keyframes could easily be 10000x10000 pixels in size)
 Afterwards the data could be used to create timelapses of nearly any part of the canvas at any given time interval.
 
+## Usage
+- Start the client.
+- Add your templates into the "Templates" view. Activate templates by checking their checkbox. (If you haven't done that already)
+- Let the client do the work until it says "You must provide a token" in the bottom of the window. Then you have to use the pixelcanvas.io website and place a pixel which causes a recaptcha to appear. Solve the captcha(s) and the bot will work for another hour. (You don't need to do anything with the bot, it will update the state on its own)
+
 ## Known problems (Which also may never be fixed)
 - If you zoom out and press "Load Viewport" the client may hit the process handle limit, as this will create a lot of small images.
   This could be fixed by caching or using bigger image chunks.
