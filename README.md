@@ -17,6 +17,7 @@ These include:
 Afterwards the data could be used to create timelapses of nearly any part of the canvas at any given time interval.
 
 ## Usage
+- [Download](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/releases)
 - Start the client.
 - Add your templates into the "Templates" view. Activate templates by checking their checkbox. (If you haven't done that already)
 - Let the client do the work until it says "You must provide a token" in the bottom of the window. Then you have to use the pixelcanvas.io website and place a pixel which causes a recaptcha to appear. Solve the captcha(s) and the bot will work for another hour. (You don't need to do anything with the bot, it will update the state on its own)
