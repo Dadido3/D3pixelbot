@@ -8,6 +8,7 @@
 ; 
 ; ##################################################### External Includes ###########################################
 XIncludeFile "Includes/Crash.pbi"
+;XIncludeFile "Includes/pb-win-notify/wn-module.pbi"
 XIncludeFile "Includes/Helper.pbi"
 ;XIncludeFile "Includes/Proxy.pbi"
 XIncludeFile "Includes/Websocket_Client.pbi"
@@ -20,7 +21,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0950
+  #Version = 0951
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -213,6 +214,8 @@ Module Main
   UseModule Helper
   
   InitNetwork()
+  
+  ;WN::wnInit()
   
   UsePNGImageDecoder()
   UseMD5Fingerprint()
@@ -1203,26 +1206,27 @@ Module Main
     Next
     
     ; #### Read cookie to get duck
-    Protected Cookie_Size.i, Duck.s
-    InternetGetCookie_("http://pixelcanvas.io", #Null, #Null, @Cookie_Size)
-    If Cookie_Size
-      Protected *Cookie_Buffer = AllocateMemory(Cookie_Size)
-      InternetGetCookie_("http://pixelcanvas.io", #Null, *Cookie_Buffer, @Cookie_Size)
-      If ExamineRegularExpression(RegEx_Duck, PeekS(*Cookie_Buffer, Cookie_Size))
-        If NextRegularExpressionMatch(RegEx_Duck)
-          Duck = RegularExpressionNamedGroup(RegEx_Duck, "Duck")
-        EndIf
-      EndIf
-      FreeMemory(*Cookie_Buffer)
-    Else
-      ProcedureReturn #Input_Result_Global_Error
-    EndIf
+;     Protected Cookie_Size.i, Duck.s
+;     InternetGetCookie_("http://pixelcanvas.io", #Null, #Null, @Cookie_Size)
+;     If Cookie_Size
+;       Protected *Cookie_Buffer = AllocateMemory(Cookie_Size)
+;       InternetGetCookie_("http://pixelcanvas.io", #Null, *Cookie_Buffer, @Cookie_Size)
+;       If ExamineRegularExpression(RegEx_Duck, PeekS(*Cookie_Buffer, Cookie_Size))
+;         If NextRegularExpressionMatch(RegEx_Duck)
+;           Duck = RegularExpressionNamedGroup(RegEx_Duck, "Duck")
+;         EndIf
+;       EndIf
+;       FreeMemory(*Cookie_Buffer)
+;     Else
+;       ProcedureReturn #Input_Result_Global_Error
+;     EndIf
     
     Protected JSON = CreateJSON(#PB_Any)
     Protected JSON_Object = SetJSONObject(JSONValue(JSON))
     SetJSONInteger(AddJSONMember(JSON_Object, "x"), X)
     SetJSONInteger(AddJSONMember(JSON_Object, "y"), Y)
-    SetJSONInteger(AddJSONMember(JSON_Object, Duck), X + Y + 22)
+    ;SetJSONInteger(AddJSONMember(JSON_Object, Duck), X + Y + 24)
+    SetJSONInteger(AddJSONMember(JSON_Object, "z"), X + Y + 2)
     SetJSONInteger(AddJSONMember(JSON_Object, "color"), Color_Index)
     SetJSONString(AddJSONMember(JSON_Object, "fingerprint"), Fingerprint)
     SetJSONNull(AddJSONMember(JSON_Object, "token"))
@@ -1246,7 +1250,11 @@ Module Main
               Case "You are using a proxy!!!11!"
                 Userdata\Logged_In = #False ; Cause a re-login
               Case "You must provide a token"
-                 Userdata\Timestamp_Next_Pixel = Get_Timestamp() + 1000 * 60
+                Userdata\Timestamp_Next_Pixel = Get_Timestamp() + 1000 * 60
+                ;WN::wnNotify(#Software_Name, "You have to solve a recaptcha!")
+              Case "You must wait"
+              Default
+                ;WN::wnNotify(#Software_Name, "Error: " + Error)
             EndSelect
           EndIf
         EndIf
@@ -1470,8 +1478,12 @@ Module Main
   
   ; ################################################### Main ########################################################
   Repeat
+    Define Window_Event
     
-    While WaitWindowEvent(1)
+    Window_Event = WaitWindowEvent(1)
+    While Window_Event
+      ;If Window_Event = WN::#wnCleanup : WN::wnCleanup() : EndIf
+      Window_Event = WaitWindowEvent(1)
     Wend
     
     Main()
@@ -1494,8 +1506,8 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 892
-; FirstLine = 870
+; CursorPosition = 1228
+; FirstLine = 1193
 ; Folding = -----
 ; EnableThread
 ; EnableXP

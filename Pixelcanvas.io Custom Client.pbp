@@ -7,35 +7,44 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2017-07-15 13:40" user="David Vogel" host="DAVIDS"/>
+    <lastopen date="2017-07-16 00:10" user="David Vogel" host="DAVIDS"/>
   </section>
   <section name="files">
-    <file name="Pixelcanvas Client.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="+"/>
-      <fingerprint md5="a1354d42e728f5a4b0e5fc6fa5c10bad"/>
-    </file>
     <file name="Includes\About.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
       <fingerprint md5="414652662bfc567795ee052cceee7f3d"/>
     </file>
+    <file name="Includes\Crash.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <fingerprint md5="aec7344f65d5cee181f614f726d526cf"/>
+    </file>
     <file name="Includes\Helper.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
       <fingerprint md5="e8e5a1b01eef97842caa661a7530978d"/>
     </file>
     <file name="Includes\Templates.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
       <fingerprint md5="60820d9f5e6ec11f990fe31710106c49"/>
     </file>
     <file name="Includes\Websocket_Client.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
       <fingerprint md5="b332f6c29fbd1f51864c2bdea06cb3f9"/>
     </file>
+    <file name="Pixelcanvas Client.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
+      <fingerprint md5="41c91f318583de057fa9cb4cdd8f9465"/>
+    </file>
   </section>
   <section name="targets">
-    <target name="Standard-Ziel" enabled="1" default="1">
-      <inputfile value=""/>
-      <outputfile value=""/>
-      <options xpskin="1" debug="1"/>
+    <target name="Windows x86" enabled="1" default="1">
+      <inputfile value="Pixelcanvas Client.pb"/>
+      <outputfile value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
+      <compiler version="PureBasic 5.60 beta 6 (Windows - x86)"/>
+      <executable value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
+      <directory value="Distribution\Windows x86\"/>
+      <options xpskin="1" onerror="1"/>
+      <compilecount enable="1" value="528"/>
+      <buildcount enable="1" value="73"/>
     </target>
   </section>
 </project>
