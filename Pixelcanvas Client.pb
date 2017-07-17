@@ -8,7 +8,6 @@
 ; 
 ; ##################################################### External Includes ###########################################
 XIncludeFile "Includes/Crash.pbi"
-;XIncludeFile "Includes/pb-win-notify/wn-module.pbi"
 XIncludeFile "Includes/Helper.pbi"
 ;XIncludeFile "Includes/Proxy.pbi"
 XIncludeFile "Includes/Websocket_Client.pbi"
@@ -21,7 +20,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0951
+  #Version = 0952
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -45,6 +44,8 @@ DeclareModule Main
     #Menu_Canvas_Load
     #Menu_Canvas_Reload
     #Menu_Canvas_AutoReload
+    
+    #Menu_Captcha_Requester
     
     #Menu_Settings_Change_Fingerprint
     
@@ -165,6 +166,7 @@ DeclareModule Main
   
   Structure Settings
     Canvas_AutoReload.i
+    Captcha_Requester.i
     
     X.d
     Y.d
@@ -202,7 +204,7 @@ DeclareModule Main
   Declare   HTTP_Post_Input(X, Y, Color_Index.a, *Template=#Null, Fingerprint.s="")
   
 EndDeclareModule
-
+XIncludeFile "Includes/Captcha_Requester.pbi"
 ; ##################################################### Includes ####################################################
 XIncludeFile "Includes/About.pbi"
 
@@ -214,8 +216,6 @@ Module Main
   UseModule Helper
   
   InitNetwork()
-  
-  ;WN::wnInit()
   
   UsePNGImageDecoder()
   UseMD5Fingerprint()
@@ -255,6 +255,8 @@ Module Main
   Global Icon_time_go = CatchImage(#PB_Any, ?Icon_time_go)
   Global Icon_key = CatchImage(#PB_Any, ?Icon_key)
   Global Icon_information = CatchImage(#PB_Any, ?Icon_information)
+  Global Icon_bell = CatchImage(#PB_Any, ?Icon_bell)
+  
   
   ; ################################################### Regular Expressions #########################################
   Global RegEx_Duck = CreateRegularExpression(#PB_Any, "DUCK=(?<Duck>[a-z])")
@@ -411,6 +413,9 @@ Module Main
       Case #Menu_Canvas_AutoReload
         Settings\Canvas_AutoReload = GetToolBarButtonState(Window\ToolBar, #Menu_Canvas_AutoReload)
         
+      Case #Menu_Captcha_Requester
+        Settings\Captcha_Requester = GetToolBarButtonState(Window\ToolBar, #Menu_Captcha_Requester)
+        
       Case #Menu_Settings_Change_Fingerprint
         Settings\Fingerprint = InputRequester("Change fingerprint", "Enter the new fingerprint", Settings\Fingerprint)
         
@@ -478,13 +483,15 @@ Module Main
       CloseWindow(Window\ID)
       ProcedureReturn #False
     EndIf
-    ToolBarImageButton(#Menu_Templates, ImageID(Icon_images), #PB_ToolBar_Normal, "Templates") : ToolBarToolTip(Window\ToolBar, #Menu_Templates, "Manage templates") 
-    ToolBarImageButton(#Menu_Canvas_Load, ImageID(Icon_map), #PB_ToolBar_Normal, "Load viewport") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Load, "Load all unloaded chunks inside the viewport") 
-    ToolBarImageButton(#Menu_Canvas_Reload, ImageID(Icon_map_go), #PB_ToolBar_Normal, "Reload all") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Reload, "Reload all chunks") 
-    ToolBarImageButton(#Menu_Canvas_AutoReload, ImageID(Icon_time_go), #PB_ToolBar_Toggle, "Autoreload") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_AutoReload, "Reload all chunks every 60 minutes (Shouldn't be used anymore)") 
-    ToolBarImageButton(#Menu_Settings_Change_Fingerprint, ImageID(Icon_key), #PB_ToolBar_Normal, "Fingerprint") : ToolBarToolTip(Window\ToolBar, #Menu_Settings_Change_Fingerprint, "Change fingerprint (Shouldn't be used anymore)") 
+    ToolBarImageButton(#Menu_Templates, ImageID(Icon_images), #PB_ToolBar_Normal, "Templates") : ToolBarToolTip(Window\ToolBar, #Menu_Templates, "Manage templates")
+    ToolBarImageButton(#Menu_Canvas_Load, ImageID(Icon_map), #PB_ToolBar_Normal, "Load viewport") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Load, "Load all unloaded chunks inside the viewport")
+    ToolBarImageButton(#Menu_Canvas_Reload, ImageID(Icon_map_go), #PB_ToolBar_Normal, "Reload all") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Reload, "Reload all chunks")
+    ToolBarImageButton(#Menu_Canvas_AutoReload, ImageID(Icon_time_go), #PB_ToolBar_Toggle, "Autoreload") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_AutoReload, "Reload all chunks every 60 minutes (Shouldn't be used anymore)")
+    ToolBarImageButton(#Menu_Captcha_Requester, ImageID(Icon_bell), #PB_ToolBar_Toggle, "Captcha Requester") : ToolBarToolTip(Window\ToolBar, #Menu_Captcha_Requester, "Show a notification window, when a captcha has to be solved")
+    ToolBarImageButton(#Menu_Settings_Change_Fingerprint, ImageID(Icon_key), #PB_ToolBar_Normal, "Fingerprint") : ToolBarToolTip(Window\ToolBar, #Menu_Settings_Change_Fingerprint, "Change fingerprint (Shouldn't be used anymore)")
     
     SetToolBarButtonState(Window\ToolBar, #Menu_Canvas_AutoReload, Settings\Canvas_AutoReload)
+    SetToolBarButtonState(Window\ToolBar, #Menu_Captcha_Requester, Settings\Captcha_Requester)
     
     ; #### Shortcuts
     ;AddKeyboardShortcut(Window\ID, #PB_Shortcut_Control | #PB_Shortcut_F, #Menu_Search)
@@ -1251,10 +1258,11 @@ Module Main
                 Userdata\Logged_In = #False ; Cause a re-login
               Case "You must provide a token"
                 Userdata\Timestamp_Next_Pixel = Get_Timestamp() + 1000 * 60
-                ;WN::wnNotify(#Software_Name, "You have to solve a recaptcha!")
+                If Settings\Captcha_Requester
+                  Captcha_Requester::Open()
+                EndIf
               Case "You must wait"
-              Default
-                ;WN::wnNotify(#Software_Name, "Error: " + Error)
+                Captcha_Requester::Close()
             EndSelect
           EndIf
         EndIf
@@ -1282,6 +1290,7 @@ Module Main
       EndIf
       
       Result = #Input_Result_Success
+      Captcha_Requester::Close()
     EndIf
     
     ProcedureReturn Result
@@ -1457,6 +1466,7 @@ Module Main
     EndIf
     
     Templates::Main()
+    Captcha_Requester::Main()
     About::Main()
     
   EndProcedure
@@ -1478,12 +1488,8 @@ Module Main
   
   ; ################################################### Main ########################################################
   Repeat
-    Define Window_Event
     
-    Window_Event = WaitWindowEvent(1)
-    While Window_Event
-      ;If Window_Event = WN::#wnCleanup : WN::wnCleanup() : EndIf
-      Window_Event = WaitWindowEvent(1)
+    While WaitWindowEvent(1)
     Wend
     
     Main()
@@ -1502,12 +1508,12 @@ Module Main
     Icon_time_go:       : IncludeBinary "Data/Icons/time_go.png"
     Icon_key:           : IncludeBinary "Data/Icons/key.png"
     Icon_information:   : IncludeBinary "Data/Icons/information.png"
+    Icon_bell:          : IncludeBinary "Data/Icons/bell.png"
   EndDataSection
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 1228
-; FirstLine = 1193
+; CursorPosition = 22
 ; Folding = -----
 ; EnableThread
 ; EnableXP
