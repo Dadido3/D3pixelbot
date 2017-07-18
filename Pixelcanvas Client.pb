@@ -20,7 +20,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0952
+  #Version = 0953
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -204,10 +204,10 @@ DeclareModule Main
   Declare   HTTP_Post_Input(X, Y, Color_Index.a, *Template=#Null, Fingerprint.s="")
   
 EndDeclareModule
-XIncludeFile "Includes/Captcha_Requester.pbi"
+
 ; ##################################################### Includes ####################################################
 XIncludeFile "Includes/About.pbi"
-
+XIncludeFile "Includes/Captcha_Requester.pbi"
 XIncludeFile "Includes/Templates.pbi"
 
 Module Main
@@ -797,8 +797,10 @@ Module Main
     Select HTTPProgress(*Chunk_Collection\Asynchronous_Download)
       Case #PB_Http_Success
         *Memory = FinishHTTP(*Chunk_Collection\Asynchronous_Download) : *Chunk_Collection\Asynchronous_Download = 0
-        Chunk_Collection_Finish_Handler(*Chunk_Collection, *Memory)
-        FreeMemory(*Memory)
+        If *Memory
+          Chunk_Collection_Finish_Handler(*Chunk_Collection, *Memory)
+          FreeMemory(*Memory)
+        EndIf
         
       Case #PB_Http_Failed
         *Chunk_Collection\Asynchronous_Download = #False
@@ -1233,7 +1235,7 @@ Module Main
     SetJSONInteger(AddJSONMember(JSON_Object, "x"), X)
     SetJSONInteger(AddJSONMember(JSON_Object, "y"), Y)
     ;SetJSONInteger(AddJSONMember(JSON_Object, Duck), X + Y + 24)
-    SetJSONInteger(AddJSONMember(JSON_Object, "z"), X + Y + 2)
+    SetJSONInteger(AddJSONMember(JSON_Object, "a"), X + Y + 8)
     SetJSONInteger(AddJSONMember(JSON_Object, "color"), Color_Index)
     SetJSONString(AddJSONMember(JSON_Object, "fingerprint"), Fingerprint)
     SetJSONNull(AddJSONMember(JSON_Object, "token"))
@@ -1512,8 +1514,9 @@ Module Main
   EndDataSection
   
 EndModule
-; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 22
+; IDE Options = PureBasic 5.60 (Windows - x64)
+; CursorPosition = 1237
+; FirstLine = 1205
 ; Folding = -----
 ; EnableThread
 ; EnableXP

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 5.60 beta 6 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 5.60 (Windows - x64)">
   <section name="config">
     <options closefiles="1" openmode="0" name="Pixelcanvas.io Custom Client"/>
   </section>
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2017-07-17 19:31" user="David Vogel" host="DAVIDS"/>
+    <lastopen date="2017-07-18 14:09" user="David Vogel" host="DAVIDS_NOTEBOOK"/>
   </section>
   <section name="files">
     <file name="Includes\About.pbi">
@@ -36,19 +36,19 @@
     </file>
     <file name="Pixelcanvas Client.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="ca11a2c32692b040e708b03c742dc53c"/>
+      <fingerprint md5="96723a0d658bf33b9ec55539a1a2a42f"/>
     </file>
   </section>
   <section name="targets">
     <target name="Windows x86" enabled="1" default="1">
       <inputfile value="Pixelcanvas Client.pb"/>
       <outputfile value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
-      <compiler version="PureBasic 5.60 beta 6 (Windows - x86)"/>
+      <compiler version="PureBasic 5.60 Beta 4 (Windows - x86)"/>
       <executable value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
       <directory value="Distribution\Windows x86\"/>
-      <options xpskin="1" onerror="1"/>
-      <compilecount enable="1" value="540"/>
-      <buildcount enable="1" value="79"/>
+      <options thread="1" xpskin="1" onerror="1"/>
+      <compilecount enable="1" value="542"/>
+      <buildcount enable="1" value="81"/>
     </target>
   </section>
 </project>
