@@ -20,7 +20,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0953
+  #Version = 0954
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -1152,9 +1152,18 @@ Module Main
     
     Protected User_agent.s = "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:53.0) Gecko/20100101 Firefox/53.0"
     Protected Open_handle = InternetOpen_(User_agent, 1, "", "", 0)
-    InternetSetOption_(Open_handle, 2, Timeout, 4)
+    InternetSetOption_(Open_handle, #INTERNET_OPTION_CONNECT_TIMEOUT, @Timeout, 4)
+    InternetSetOption_(Open_handle, #INTERNET_OPTION_RECEIVE_TIMEOUT, @Timeout, 4)
+    InternetSetOption_(Open_handle, #INTERNET_OPTION_DATA_SEND_TIMEOUT, @Timeout, 4)
+    InternetSetOption_(Open_handle, #INTERNET_OPTION_SEND_TIMEOUT, @Timeout, 4)
     Protected Flags.l = #INTERNET_FLAG_KEEP_CONNECTION
     Protected Connect_handle = InternetConnect_(Open_handle, Servername, Port, #Null$, #Null$, 3, 0, 0)
+    
+    If Not Connect_handle
+      InternetCloseHandle_(Open_handle)
+      FreeMemory(*Temp_Data)
+      ProcedureReturn ""
+    EndIf
     
     rgpszAcceptTypes(0) = "*/*"
     rgpszAcceptTypes(1) = #Null$
@@ -1256,7 +1265,7 @@ Module Main
           If GetJSONMember(GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0), "msg")
             Error = GetJSONString(GetJSONMember(GetJSONElement(GetJSONMember(JSONValue(JSON), "errors"), 0), "msg"))
             Select Error
-              Case "You are using a proxy!!!11!"
+              Case "You are using a proxy!!!11!one"
                 Userdata\Logged_In = #False ; Cause a re-login
               Case "You must provide a token"
                 Userdata\Timestamp_Next_Pixel = Get_Timestamp() + 1000 * 60
@@ -1514,9 +1523,8 @@ Module Main
   EndDataSection
   
 EndModule
-; IDE Options = PureBasic 5.60 (Windows - x64)
-; CursorPosition = 1237
-; FirstLine = 1205
+; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
+; CursorPosition = 22
 ; Folding = -----
 ; EnableThread
 ; EnableXP

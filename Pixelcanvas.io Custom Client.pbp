@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 5.60 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 5.60 beta 6 (Windows - x64)">
   <section name="config">
     <options closefiles="1" openmode="0" name="Pixelcanvas.io Custom Client"/>
   </section>
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2017-07-18 14:09" user="David Vogel" host="DAVIDS_NOTEBOOK"/>
+    <lastopen date="2017-07-19 00:05" user="David Vogel" host="DAVIDS"/>
   </section>
   <section name="files">
     <file name="Includes\About.pbi">
@@ -28,7 +28,7 @@
     </file>
     <file name="Includes\Templates.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="60820d9f5e6ec11f990fe31710106c49"/>
+      <fingerprint md5="a2dac144cf1747e9efb7fafbdb6cf5bb"/>
     </file>
     <file name="Includes\Websocket_Client.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
@@ -36,19 +36,19 @@
     </file>
     <file name="Pixelcanvas Client.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="96723a0d658bf33b9ec55539a1a2a42f"/>
+      <fingerprint md5="d43bd0033e0375bd5d89b8eff6afed6b"/>
     </file>
   </section>
   <section name="targets">
     <target name="Windows x86" enabled="1" default="1">
       <inputfile value="Pixelcanvas Client.pb"/>
       <outputfile value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
-      <compiler version="PureBasic 5.60 Beta 4 (Windows - x86)"/>
+      <compiler version="PureBasic 5.60 beta 6 (Windows - x86)"/>
       <executable value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
       <directory value="Distribution\Windows x86\"/>
-      <options thread="1" xpskin="1" onerror="1"/>
-      <compilecount enable="1" value="542"/>
-      <buildcount enable="1" value="81"/>
+      <options xpskin="1" onerror="1" debug="1"/>
+      <compilecount enable="1" value="545"/>
+      <buildcount enable="1" value="82"/>
     </target>
   </section>
 </project>
