@@ -20,7 +20,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0954
+  #Version = 0955
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -417,7 +417,10 @@ Module Main
         Settings\Captcha_Requester = GetToolBarButtonState(Window\ToolBar, #Menu_Captcha_Requester)
         
       Case #Menu_Settings_Change_Fingerprint
-        Settings\Fingerprint = InputRequester("Change fingerprint", "Enter the new fingerprint", Settings\Fingerprint)
+        Protected Result.s = InputRequester("Change fingerprint", "Enter the new fingerprint", Settings\Fingerprint)
+        If Result
+          Settings\Fingerprint = Result
+        EndIf
         
       Case #Menu_About
         About::Open()
@@ -1524,7 +1527,8 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 22
+; CursorPosition = 419
+; FirstLine = 394
 ; Folding = -----
 ; EnableThread
 ; EnableXP

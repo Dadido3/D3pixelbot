@@ -40,6 +40,9 @@ DeclareModule Templates
     #Reorder_Right_To_Left
     #Reorder_Top_To_Bottom
     #Reorder_Bottom_To_Top
+    
+    #Reorder_Replace_White_First
+    #Reorder_Replace_White_Last
   EndEnumeration
   
   Enumeration
@@ -558,6 +561,8 @@ Module Templates
         AddGadgetItem(Window\ComboBox_Reorder [i], #Reorder_Right_To_Left, "Right to left")
         AddGadgetItem(Window\ComboBox_Reorder [i], #Reorder_Top_To_Bottom, "Top to bottom")
         AddGadgetItem(Window\ComboBox_Reorder [i], #Reorder_Bottom_To_Top, "Bottom to top")
+        AddGadgetItem(Window\ComboBox_Reorder [i], #Reorder_Replace_White_First, "Replace white first")
+        AddGadgetItem(Window\ComboBox_Reorder [i], #Reorder_Replace_White_Last, "Replace white last")
       Next
       
       Y + 10
@@ -749,6 +754,20 @@ Module Templates
     ProcedureReturn #True
   EndProcedure
   
+  Procedure Reorder_White(*Object.Object, Options=#PB_Sort_Ascending)
+    ForEach *Object\Difference()
+      If *Object\Difference()\Canvas_Color_Index = 0
+        *Object\Difference()\Reorder_Temp = 0
+      Else
+        *Object\Difference()\Reorder_Temp = 1
+      EndIf
+    Next
+    
+    SortStructuredList(*Object\Difference(), Options, OffsetOf(Difference\Reorder_Temp), TypeOf(Difference\Reorder_Temp))
+    
+    ProcedureReturn #True
+  EndProcedure
+  
   Procedure Draw(*Object.Object)
     Protected i
     Protected Counter
@@ -773,6 +792,8 @@ Module Templates
         Case #Reorder_Right_To_Left                   : Reorder_X(*Object, #PB_Sort_Descending)
         Case #Reorder_Top_To_Bottom                   : Reorder_Y(*Object, #PB_Sort_Ascending)
         Case #Reorder_Bottom_To_Top                   : Reorder_Y(*Object, #PB_Sort_Descending)
+        Case #Reorder_Replace_White_First             : Reorder_White(*Object, #PB_Sort_Ascending)
+        Case #Reorder_Replace_White_Last              : Reorder_White(*Object, #PB_Sort_Descending)
       EndSelect
     Next
     
@@ -1030,9 +1051,9 @@ Module Templates
   
 EndModule
 
-; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 998
-; FirstLine = 960
+; IDE Options = PureBasic 5.60 (Windows - x64)
+; CursorPosition = 758
+; FirstLine = 756
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe

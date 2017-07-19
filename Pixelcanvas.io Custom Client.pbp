@@ -7,7 +7,7 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2017-07-19 00:05" user="David Vogel" host="DAVIDS"/>
+    <lastopen date="2017-07-19 19:24" user="David Vogel" host="DAVIDS"/>
   </section>
   <section name="files">
     <file name="Includes\About.pbi">
@@ -28,7 +28,7 @@
     </file>
     <file name="Includes\Templates.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="a2dac144cf1747e9efb7fafbdb6cf5bb"/>
+      <fingerprint md5="fcc411e578a562a3f60a172f2c91c163"/>
     </file>
     <file name="Includes\Websocket_Client.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
@@ -36,7 +36,7 @@
     </file>
     <file name="Pixelcanvas Client.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="d43bd0033e0375bd5d89b8eff6afed6b"/>
+      <fingerprint md5="fcfb3a9c787171dc7e8d40e9a4de9e4e"/>
     </file>
   </section>
   <section name="targets">
@@ -47,8 +47,8 @@
       <executable value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
       <directory value="Distribution\Windows x86\"/>
       <options xpskin="1" onerror="1" debug="1"/>
-      <compilecount enable="1" value="545"/>
-      <buildcount enable="1" value="82"/>
+      <compilecount enable="1" value="550"/>
+      <buildcount enable="1" value="86"/>
     </target>
   </section>
 </project>
