@@ -17,8 +17,14 @@
 DeclareModule Captcha_Requester
   EnableExplicit
   ; ################################################### Constants ###################################################
+  Enumeration
+    #State_Solved
+    #State_Solving
+  EndEnumeration
   
   ; ################################################### Functions ###################################################
+  Declare   GetState()
+  
   Declare   Open()
   Declare   Close()
   Declare   Main()
@@ -49,6 +55,7 @@ Module Captcha_Requester
     
     ; #### Gadgets
     Text.i
+    Button.i
   EndStructure
   
   Structure FLASHWINFO_B Align #PB_Structure_AlignC
@@ -78,6 +85,18 @@ Module Captcha_Requester
     Info\dwTimeout = 300
     
     FlashWindowEx_(Info)
+  EndProcedure
+  
+  Procedure Button_Event()
+    Protected Event_Window = EventWindow()
+    Protected Event_Gadget = EventGadget()
+    Protected Event_Type = EventType()
+    
+    Select Event_Type
+      Case #PB_EventType_LeftClick
+        Window\Exit = #True
+        
+    EndSelect
   EndProcedure
   
   Procedure Event_SizeWindow()
@@ -123,13 +142,16 @@ Module Captcha_Requester
       ProcedureReturn #True
     EndIf
     
-    Width = 200
-    Height = 100
+    Width = 300
+    Height = 120
     
     Window\ID = OpenWindow(#PB_Any, 0, 0, Width, Height, "Captcha", #PB_Window_SystemMenu | #PB_Window_ScreenCentered)
     If Window\ID
       
-      Window\Text = TextGadget(#PB_Any, 10, 10, Width - 20, Height -20, "The captcha has to be solved manually." + #CRLF$ + "Go to PixelCanvas.io, place a pixel and solve the captcha(s)." + #CRLF$ + "This window will disappear then eventually.")
+      Window\Text = TextGadget(#PB_Any, 10, 10, Width - 20, Height - 60, "The captcha has to be solved manually." + #CRLF$ + "Go to PixelCanvas.io, place a pixel and solve the captcha(s)." + #CRLF$ + "Afterwards press 'OK' or close this window.")
+      Window\Button = ButtonGadget(#PB_Any, Width - 110, Height - 40, 100, 30, "OK")
+      
+      BindGadgetEvent(Window\Button, @Button_Event())
       
       BindEvent(#PB_Event_SizeWindow, @Event_SizeWindow(), Window\ID)
       BindEvent(#PB_Event_Menu, @Event_Menu(), Window\ID)
@@ -146,12 +168,22 @@ Module Captcha_Requester
   Procedure Close()
     If Window\ID
       
+      UnbindGadgetEvent(Window\Button, @Button_Event())
+      
       UnbindEvent(#PB_Event_SizeWindow, @Event_SizeWindow(), Window\ID)
       UnbindEvent(#PB_Event_Menu, @Event_Menu(), Window\ID)
       UnbindEvent(#PB_Event_CloseWindow, @Event_CloseWindow(), Window\ID)
       
       CloseWindow(Window\ID)
       Window\ID = 0
+    EndIf
+  EndProcedure
+  
+  Procedure GetState()
+    If Window\ID
+      ProcedureReturn #State_Solving
+    Else
+      ProcedureReturn #State_Solved
     EndIf
   EndProcedure
   
@@ -170,7 +202,7 @@ Module Captcha_Requester
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 117
-; FirstLine = 100
+; CursorPosition = 144
+; FirstLine = 124
 ; Folding = --
 ; EnableXP

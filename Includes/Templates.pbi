@@ -1016,7 +1016,7 @@ Module Templates
     Next
     
     ; #### Draw templates
-    If Main::Userdata\Timestamp_Next_Pixel + 0 < Main::Get_Timestamp() And Timer_Draw < ElapsedMilliseconds()
+    If Main::Userdata\Timestamp_Next_Pixel + 0 < Main::Get_Timestamp() And Timer_Draw < ElapsedMilliseconds() And Captcha_Requester::GetState() = Captcha_Requester::#State_Solved
       Timer_Draw = ElapsedMilliseconds() + 4000
       ForEach Object()
         If Object()\Settings\Active
@@ -1051,9 +1051,9 @@ Module Templates
   
 EndModule
 
-; IDE Options = PureBasic 5.60 (Windows - x64)
-; CursorPosition = 758
-; FirstLine = 756
+; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
+; CursorPosition = 1020
+; FirstLine = 1000
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe

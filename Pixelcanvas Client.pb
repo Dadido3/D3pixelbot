@@ -20,7 +20,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0955
+  #Version = 0956
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -1271,7 +1271,7 @@ Module Main
               Case "You are using a proxy!!!11!one"
                 Userdata\Logged_In = #False ; Cause a re-login
               Case "You must provide a token"
-                Userdata\Timestamp_Next_Pixel = Get_Timestamp() + 1000 * 60
+                ;Userdata\Timestamp_Next_Pixel = Get_Timestamp() + 1000 * 60
                 If Settings\Captcha_Requester
                   Captcha_Requester::Open()
                 EndIf
@@ -1527,8 +1527,7 @@ Module Main
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 419
-; FirstLine = 394
+; CursorPosition = 22
 ; Folding = -----
 ; EnableThread
 ; EnableXP
