@@ -7,7 +7,7 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2017-07-20 15:18" user="David Vogel" host="DAVIDS_NOTEBOOK"/>
+    <lastopen date="2017-07-27 13:11" user="David Vogel" host="DAVIDS_NOTEBOOK"/>
   </section>
   <section name="files">
     <file name="Includes\About.pbi">
@@ -16,7 +16,7 @@
     </file>
     <file name="Includes\Captcha_Requester.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="e1d37228a17c5a859729f285121ca5a8"/>
+      <fingerprint md5="4e625bc394d5d4a12a488de196218da9"/>
     </file>
     <file name="Includes\Crash.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
@@ -28,7 +28,7 @@
     </file>
     <file name="Includes\Templates.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="fcc411e578a562a3f60a172f2c91c163"/>
+      <fingerprint md5="f87b2e33a33570b26383a29d91eb4373"/>
     </file>
     <file name="Includes\Websocket_Client.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
@@ -36,7 +36,7 @@
     </file>
     <file name="Pixelcanvas Client.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="fcfb3a9c787171dc7e8d40e9a4de9e4e"/>
+      <fingerprint md5="d9f185303094521a75499695310dfad8"/>
     </file>
   </section>
   <section name="targets">
@@ -47,8 +47,8 @@
       <executable value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
       <directory value="Distribution\Windows x86\"/>
       <options xpskin="1" onerror="1" debug="1"/>
-      <compilecount enable="1" value="550"/>
-      <buildcount enable="1" value="86"/>
+      <compilecount enable="1" value="553"/>
+      <buildcount enable="1" value="89"/>
     </target>
   </section>
 </project>

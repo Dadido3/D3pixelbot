@@ -105,7 +105,7 @@ Module About
     AddGadgetItem(About\Editor, -1, "")
     AddGadgetItem(About\Editor, -1, "Programmer: David Vogel (Dadido3, Xaardas)")
     AddGadgetItem(About\Editor, -1, "Website: www.D3nexus.de")
-    AddGadgetItem(About\Editor, -1, "Repository: Not public yet");www.github.com/Dadido3/...")
+    AddGadgetItem(About\Editor, -1, "Repository: www.github.com/Dadido3/Pixelcanvas.io-Custom-Client")
     AddGadgetItem(About\Editor, -1, "")
     AddGadgetItem(About\Editor, -1, "╔══════════════════════╗")
     AddGadgetItem(About\Editor, -1, "║     Compilation:     ║")
@@ -245,7 +245,7 @@ Module About
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 32
-; FirstLine = 8
+; CursorPosition = 107
+; FirstLine = 98
 ; Folding = --
 ; EnableXP
