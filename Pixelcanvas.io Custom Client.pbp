@@ -7,12 +7,12 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2017-07-27 13:11" user="David Vogel" host="DAVIDS_NOTEBOOK"/>
+    <lastopen date="2017-08-07 09:51" user="David Vogel" host="DAVIDS_NOTEBOOK"/>
   </section>
   <section name="files">
     <file name="Includes\About.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="414652662bfc567795ee052cceee7f3d"/>
+      <fingerprint md5="5296cd1a480596c0a50c8b0598465ef7"/>
     </file>
     <file name="Includes\Captcha_Requester.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
@@ -36,7 +36,7 @@
     </file>
     <file name="Pixelcanvas Client.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="d9f185303094521a75499695310dfad8"/>
+      <fingerprint md5="fde598af52b7d213c71e7a33190567be"/>
     </file>
   </section>
   <section name="targets">
@@ -46,9 +46,9 @@
       <compiler version="PureBasic 5.60 beta 6 (Windows - x86)"/>
       <executable value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
       <directory value="Distribution\Windows x86\"/>
-      <options xpskin="1" onerror="1" debug="1"/>
-      <compilecount enable="1" value="553"/>
-      <buildcount enable="1" value="89"/>
+      <options thread="1" xpskin="1" onerror="1" debug="1"/>
+      <compilecount enable="1" value="554"/>
+      <buildcount enable="1" value="90"/>
     </target>
   </section>
 </project>
