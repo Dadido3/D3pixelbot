@@ -537,9 +537,9 @@ Module Templates
       Y + 10
       
       Window\Text [0] = TextGadget(#PB_Any, 10, Y, 100, 20, "X:", #PB_Text_Right)
-      Window\Spin [0] = SpinGadget(#PB_Any, 120, Y, 100, 20, -10000, 10000, #PB_Spin_Numeric) : Y + 20
+      Window\Spin [0] = SpinGadget(#PB_Any, 120, Y, 100, 20, -1000000, 1000000, #PB_Spin_Numeric) : Y + 20
       Window\Text [1] = TextGadget(#PB_Any, 10, Y, 100, 20, "Y:", #PB_Text_Right)
-      Window\Spin [1] = SpinGadget(#PB_Any, 120, Y, 100, 20, -10000, 10000, #PB_Spin_Numeric) : Y + 20
+      Window\Spin [1] = SpinGadget(#PB_Any, 120, Y, 100, 20, -1000000, 1000000, #PB_Spin_Numeric) : Y + 20
       Window\Text [2] = TextGadget(#PB_Any, 10, Y, 100, 20, "File:", #PB_Text_Right)
       Window\String = StringGadget(#PB_Any, 120, Y, Width - 130, 20, "") : Y + 20
       For i = 0 To #Reorder_Amount-1
