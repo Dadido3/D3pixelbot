@@ -20,7 +20,7 @@ DeclareModule Main
   ; ################################################### Prototypes ##################################################
   
   ; ################################################### Constants ###################################################
-  #Version = 0957
+  #Version = 0959
   
   #Software_Name = "Pixelcanvas.io Custom Client"
   
@@ -30,6 +30,9 @@ DeclareModule Main
   #Chunk_Collection_Radius = 7
   
   #Chunk_Collection_Download_Timeout = 5 * 60 * 1000
+  
+  #Canvas_Zoom_Max = 4
+  #Canvas_Zoom_Min = -2
   
   #Colors = 16
   
@@ -44,6 +47,7 @@ DeclareModule Main
     #Menu_Canvas_Load
     #Menu_Canvas_Reload
     #Menu_Canvas_AutoReload
+    #Menu_Canvas_Goto
     
     #Menu_Captcha_Requester
     
@@ -195,6 +199,8 @@ DeclareModule Main
   
   Declare   Image_Get(X.i, Y.i, Width.i, Height.i)
   
+  Declare   Canvas_Goto(X.d, Y.d, Zoom=#Canvas_Zoom_Min-1)
+  
   Declare   Chunk_Collection_Get(CCX.i, CCY.i, Create=#False)
   Declare   Chunk_Collection_Download_Area(X.i, Y.i, Width.i, Height.i)
   Declare   Chunk_Collection_Delete(*Chunk_Collection.Chunk_Collection)
@@ -208,6 +214,7 @@ EndDeclareModule
 ; ##################################################### Includes ####################################################
 XIncludeFile "Includes/About.pbi"
 XIncludeFile "Includes/Captcha_Requester.pbi"
+XIncludeFile "Includes/Goto_Requester.pbi"
 XIncludeFile "Includes/Templates.pbi"
 
 Module Main
@@ -256,7 +263,7 @@ Module Main
   Global Icon_key = CatchImage(#PB_Any, ?Icon_key)
   Global Icon_information = CatchImage(#PB_Any, ?Icon_information)
   Global Icon_bell = CatchImage(#PB_Any, ?Icon_bell)
-  
+  Global Icon_bullet_go = CatchImage(#PB_Any, ?Icon_bullet_go)
   
   ; ################################################### Regular Expressions #########################################
   Global RegEx_Duck = CreateRegularExpression(#PB_Any, "DUCK=(?<Duck>[a-z])")
@@ -349,11 +356,11 @@ Module Main
         
       Case #PB_EventType_MouseWheel
         Temp_Zoom = Pow(2, GetGadgetAttribute(Event_Gadget, #PB_Canvas_WheelDelta))
-        If Settings\Zoom * Temp_Zoom < Pow(2, -2)
-          Temp_Zoom = Pow(2, -2) / Settings\Zoom
+        If Settings\Zoom * Temp_Zoom < Pow(2, #Canvas_Zoom_Min)
+          Temp_Zoom = Pow(2, #Canvas_Zoom_Min) / Settings\Zoom
         EndIf
-        If Settings\Zoom * Temp_Zoom > Pow(2, 4)
-          Temp_Zoom = Pow(2, 4) / Settings\Zoom
+        If Settings\Zoom * Temp_Zoom > Pow(2, #Canvas_Zoom_Max)
+          Temp_Zoom = Pow(2, #Canvas_Zoom_Max) / Settings\Zoom
         EndIf
         Settings\X - (Temp_Zoom - 1) * (GetGadgetAttribute(Event_Gadget, #PB_Canvas_MouseX) - Settings\X - Width/2)
         Settings\Y - (Temp_Zoom - 1) * (GetGadgetAttribute(Event_Gadget, #PB_Canvas_MouseY) - Settings\Y - Height/2)
@@ -413,6 +420,9 @@ Module Main
       Case #Menu_Canvas_AutoReload
         Settings\Canvas_AutoReload = GetToolBarButtonState(Window\ToolBar, #Menu_Canvas_AutoReload)
         
+      Case #Menu_Canvas_Goto
+        Goto_Requester::Open()
+        
       Case #Menu_Captcha_Requester
         Settings\Captcha_Requester = GetToolBarButtonState(Window\ToolBar, #Menu_Captcha_Requester)
         
@@ -471,6 +481,7 @@ Module Main
     MenuTitle("Canvas")
     MenuItem(#Menu_Canvas_Load, "Load viewport", ImageID(Icon_map))
     MenuItem(#Menu_Canvas_Reload, "Reload all", ImageID(Icon_map_go))
+    MenuItem(#Menu_Canvas_Goto, "Goto", ImageID(Icon_bullet_go))
     
     MenuTitle("Settings")
     MenuItem(#Menu_Settings_Change_Fingerprint, "Change fingerprint", ImageID(Icon_key))
@@ -490,6 +501,7 @@ Module Main
     ToolBarImageButton(#Menu_Canvas_Load, ImageID(Icon_map), #PB_ToolBar_Normal, "Load viewport") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Load, "Load all unloaded chunks inside the viewport")
     ToolBarImageButton(#Menu_Canvas_Reload, ImageID(Icon_map_go), #PB_ToolBar_Normal, "Reload all") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Reload, "Reload all chunks")
     ToolBarImageButton(#Menu_Canvas_AutoReload, ImageID(Icon_time_go), #PB_ToolBar_Toggle, "Autoreload") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_AutoReload, "Reload all chunks every 60 minutes (Shouldn't be used anymore)")
+    ToolBarImageButton(#Menu_Canvas_Goto, ImageID(Icon_bullet_go), #PB_ToolBar_Normal, "Goto") : ToolBarToolTip(Window\ToolBar, #Menu_Canvas_Goto, "Move viewport to a given coordinate")
     ToolBarImageButton(#Menu_Captcha_Requester, ImageID(Icon_bell), #PB_ToolBar_Toggle, "Captcha Requester") : ToolBarToolTip(Window\ToolBar, #Menu_Captcha_Requester, "Show a notification window, when a captcha has to be solved")
     ToolBarImageButton(#Menu_Settings_Change_Fingerprint, ImageID(Icon_key), #PB_ToolBar_Normal, "Fingerprint") : ToolBarToolTip(Window\ToolBar, #Menu_Settings_Change_Fingerprint, "Change fingerprint (Shouldn't be used anymore)")
     
@@ -569,6 +581,17 @@ Module Main
     EndIf
     
     ProcedureReturn ImageID
+  EndProcedure
+  
+  Procedure Canvas_Goto(X.d, Y.d, Zoom=#Canvas_Zoom_Min-1)
+    If Zoom >= #Canvas_Zoom_Min And Zoom <= #Canvas_Zoom_Max
+      Settings\Zoom = Pow(2, Zoom)
+    EndIf
+    
+    Settings\X = X * Settings\Zoom
+    Settings\Y = Y * Settings\Zoom
+    
+    Window\Canvas\Redraw = #True
   EndProcedure
   
   Procedure Canvas_Redraw()
@@ -1481,6 +1504,7 @@ Module Main
     
     Templates::Main()
     Captcha_Requester::Main()
+    Goto_Requester::Main()
     About::Main()
     
   EndProcedure
@@ -1523,11 +1547,13 @@ Module Main
     Icon_key:           : IncludeBinary "Data/Icons/key.png"
     Icon_information:   : IncludeBinary "Data/Icons/information.png"
     Icon_bell:          : IncludeBinary "Data/Icons/bell.png"
+    Icon_bullet_go:     : IncludeBinary "Data/Icons/bullet_go.png"
   EndDataSection
   
 EndModule
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 22
+; CursorPosition = 594
+; FirstLine = 585
 ; Folding = -----
 ; EnableThread
 ; EnableXP

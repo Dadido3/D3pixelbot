@@ -292,6 +292,7 @@ Module Templates
       DisableGadget(Window\Button[0], #False)
       DisableGadget(Window\Button[1], #False)
       DisableGadget(Window\Button[2], #False)
+      DisableGadget(Window\Button[4], #False)
     Else
       SetGadgetText(Window\String, "")
       SetGadgetState(Window\Spin[0], 0)
@@ -309,6 +310,7 @@ Module Templates
       DisableGadget(Window\Button[0], #True)
       DisableGadget(Window\Button[1], #True)
       DisableGadget(Window\Button[2], #True)
+      DisableGadget(Window\Button[4], #True)
     EndIf
   EndProcedure
   
@@ -342,6 +344,8 @@ Module Templates
     Protected Event_Gadget = EventGadget()
     Protected Event_Type = EventType()
     
+    Protected Index = GetGadgetState(Event_Gadget)
+    
     Select Event_Type
       Case #PB_EventType_LeftClick
         Refresh_Fields()
@@ -354,6 +358,11 @@ Module Templates
             Object()\Settings\Active = #False
           EndIf
         Next
+        
+      Case #PB_EventType_LeftDoubleClick
+        If Index <> -1 And SelectElement(Object(), Index)
+          Main::Canvas_Goto(-Object()\Settings\X - Object()\Width/2, -Object()\Settings\Y - Object()\Height/2, 0)
+        EndIf
         
     EndSelect
     
@@ -457,6 +466,11 @@ Module Templates
         Refresh_ListIcon()
         Refresh_Fields()
         
+      Case Window\Button[4]
+        If Index <> -1 And SelectElement(Object(), Index)
+          Main::Canvas_Goto(-Object()\Settings\X - Object()\Width/2, -Object()\Settings\Y - Object()\Height/2, 0)
+        EndIf
+        
     EndSelect
   EndProcedure
   
@@ -494,6 +508,7 @@ Module Templates
     ResizeGadget(Window\Button [1], 60, Y, 50, 20)
     ResizeGadget(Window\Button [2], 110, Y, 50, 20)
     ResizeGadget(Window\Button [3], 160, Y, 50, 20)
+    ResizeGadget(Window\Button [4], Width-60, Y, 50, 20)
   EndProcedure
   
   Procedure Event_Menu()
@@ -571,6 +586,7 @@ Module Templates
       Window\Button [1] = ButtonGadget(#PB_Any, 60, Y, 50, 20, "Down")
       Window\Button [2] = ButtonGadget(#PB_Any, 110, Y, 50, 20, "Delete")
       Window\Button [3] = ButtonGadget(#PB_Any, 160, Y, 50, 20, "Create")
+      Window\Button [4] = ButtonGadget(#PB_Any, Width-60, Y, 50, 20, "Goto")
       
       BindGadgetEvent(Window\ListIcon, @Event_ListIcon())
       BindGadgetEvent(Window\Spin [0], @Event_Spin())
@@ -583,6 +599,7 @@ Module Templates
       BindGadgetEvent(Window\Button [1], @Event_Button())
       BindGadgetEvent(Window\Button [2], @Event_Button())
       BindGadgetEvent(Window\Button [3], @Event_Button())
+      BindGadgetEvent(Window\Button [4], @Event_Button())
       
       BindEvent(#PB_Event_SizeWindow, @Event_SizeWindow(), Window\ID)
       ;BindEvent(#PB_Event_Repaint, @Event_SizeWindow(), Window\ID)
@@ -612,6 +629,7 @@ Module Templates
       UnbindGadgetEvent(Window\Button [1], @Event_Button())
       UnbindGadgetEvent(Window\Button [2], @Event_Button())
       UnbindGadgetEvent(Window\Button [3], @Event_Button())
+      UnbindGadgetEvent(Window\Button [4], @Event_Button())
       
       UnbindEvent(#PB_Event_SizeWindow, @Event_SizeWindow(), Window\ID)
       ;UnbindEvent(#PB_Event_Repaint, @Event_SizeWindow(), Window\ID)
@@ -1052,8 +1070,8 @@ Module Templates
 EndModule
 
 ; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 1020
-; FirstLine = 1000
+; CursorPosition = 363
+; FirstLine = 341
 ; Folding = ------
 ; EnableXP
 ; Executable = ..\Pixelcanvas Client.exe
