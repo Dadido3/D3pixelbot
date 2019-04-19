@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 5.60 beta 6 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 5.61 (Windows - x64)">
   <section name="config">
     <options closefiles="1" openmode="0" name="Pixelcanvas.io Custom Client"/>
   </section>
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2017-08-14 23:00" user="David Vogel" host="DAVIDS"/>
+    <lastopen date="2019-04-19 15:43" user="David Vogel" host="DAVIDS"/>
   </section>
   <section name="files">
     <file name="Includes\About.pbi">
@@ -35,24 +35,25 @@
       <fingerprint md5="dfab7bc037eea93d21b87aff4ee610b5"/>
     </file>
     <file name="Includes\Websocket_Client.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
       <fingerprint md5="b332f6c29fbd1f51864c2bdea06cb3f9"/>
     </file>
     <file name="Pixelcanvas Client.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="c46a6583517e1677b34178a3f4f96b19"/>
+      <fingerprint md5="d747a9f389f88d37f6e8359dac0e7863"/>
     </file>
   </section>
   <section name="targets">
     <target name="Windows x86" enabled="1" default="1">
       <inputfile value="Pixelcanvas Client.pb"/>
       <outputfile value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
-      <compiler version="PureBasic 5.60 beta 6 (Windows - x86)"/>
+      <compiler version="PureBasic 5.61 beta 1 (Windows - x86)"/>
       <executable value="Distribution\Windows x86\Pixelcanvas Client.exe"/>
       <directory value="Distribution\Windows x86\"/>
-      <options thread="1" xpskin="1" onerror="1"/>
-      <compilecount enable="1" value="583"/>
-      <buildcount enable="1" value="94"/>
+      <options thread="1" xpskin="1" onerror="1" debug="1"/>
+      <purifier enable="1" granularity="1,1,1,1"/>
+      <compilecount enable="1" value="634"/>
+      <buildcount enable="1" value="114"/>
     </target>
   </section>
 </project>

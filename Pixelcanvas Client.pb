@@ -139,6 +139,7 @@ DeclareModule Main
     Downloaded.i              ; #False: Is being downloaded, #True: Downloaded
     Asynchronous_Download.i   ; The connection for the asynchronous download
     Download_Timeout.q
+    Progress.i
     
     List Chunk.Chunk()
   EndStructure
@@ -669,6 +670,15 @@ Module Main
           DrawVectorImage(ImageID(*Chunk\Image), 255, #Chunk_Size, #Chunk_Size)
         EndIf
       Next
+      
+      If Chunk_Collection()\Asynchronous_Download
+        X_M = Chunk_Collection()\CCX * (#Chunk_Collection_Radius*2+1) * #Chunk_Size
+        Y_M = Chunk_Collection()\CCY * (#Chunk_Collection_Radius*2+1) * #Chunk_Size
+        MovePathCursor(X_M, Y_M)
+        VectorFont(FontID(Font_Normal), 32)
+        VectorSourceColor(RGBA(255, 255, 255, 255))
+        DrawVectorText("Downloading: " + Chunk_Collection()\Progress + "B")
+      EndIf
     Next
     
     ; #### Draw templates
@@ -785,6 +795,8 @@ Module Main
       Next
     Next
     
+    Debug "Processed downloaded chunk collection: CCX:" + CCX + " CCY:" + CCY + " Radius:" + #Chunk_Collection_Radius
+    
     *Chunk_Collection\Downloaded = #True
     
     ForEach *Chunk_Collection\Chunk()
@@ -798,6 +810,7 @@ Module Main
     Protected *Memory
     Static CacheFix_Counter
     Protected URL.s
+    Protected Progress
     
     If *Chunk_Collection\Asynchronous_Download And *Chunk_Collection\Download_Timeout < ElapsedMilliseconds()
       AbortHTTP(*Chunk_Collection\Asynchronous_Download)
@@ -806,9 +819,10 @@ Module Main
     If Not *Chunk_Collection\Asynchronous_Download And Not *Chunk_Collection\Downloaded
       
       URL = "http://pixelcanvas.io/api/bigchunk/"+Str(*Chunk_Collection\CCX*(#Chunk_Collection_Radius*2+1))+"."+Str(*Chunk_Collection\CCY*(#Chunk_Collection_Radius*2+1))+".bmp?CFC="+Str(CacheFix_Counter)
+      CacheFix_Counter + 1
       
       *Chunk_Collection\Asynchronous_Download = ReceiveHTTPMemory(URL, #PB_HTTP_Asynchronous)
-      CacheFix_Counter + 1
+      *Chunk_Collection\Progress = 0
       
       *Chunk_Collection\Download_Timeout = ElapsedMilliseconds() + #Chunk_Collection_Download_Timeout
       
@@ -820,8 +834,10 @@ Module Main
       ProcedureReturn
     EndIf
     
-    Select HTTPProgress(*Chunk_Collection\Asynchronous_Download)
+    Progress = HTTPProgress(*Chunk_Collection\Asynchronous_Download)
+    Select Progress
       Case #PB_Http_Success
+        Debug "HTTP download success"
         *Memory = FinishHTTP(*Chunk_Collection\Asynchronous_Download) : *Chunk_Collection\Asynchronous_Download = 0
         If *Memory
           Chunk_Collection_Finish_Handler(*Chunk_Collection, *Memory)
@@ -829,10 +845,16 @@ Module Main
         EndIf
         
       Case #PB_Http_Failed
-        *Chunk_Collection\Asynchronous_Download = #False
+        Debug "HTTP download failed"
+        *Chunk_Collection\Asynchronous_Download = 0
         
       Case #PB_Http_Aborted
-        *Chunk_Collection\Asynchronous_Download = #False
+        Debug "HTTP download aborted"
+        *Chunk_Collection\Asynchronous_Download = 0
+        
+      Default
+        *Chunk_Collection\Progress = Progress
+        Window\Canvas\Redraw = #True
         
     EndSelect
   EndProcedure
@@ -1551,9 +1573,9 @@ Module Main
   EndDataSection
   
 EndModule
-; IDE Options = PureBasic 5.60 beta 6 (Windows - x64)
-; CursorPosition = 594
-; FirstLine = 585
+; IDE Options = PureBasic 5.61 (Windows - x64)
+; CursorPosition = 1319
+; FirstLine = 1295
 ; Folding = -----
 ; EnableThread
 ; EnableXP
