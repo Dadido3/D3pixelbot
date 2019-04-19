@@ -1,3 +1,6 @@
+| NOTE: As of april 2019 the bot has stopped working! It can't be fixed with an `use/effort ratio > 1`. Some more details are to be found in this ![issue](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/issues/9) |
+| --- |
+
 Pixelcanvas.io Custom Client
 =====
 
