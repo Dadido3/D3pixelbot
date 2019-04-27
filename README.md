@@ -1,5 +1,19 @@
-| NOTE: As of april 2019 the bot has stopped working! It can't be fixed with an `use/effort ratio > 1`. Some more details are to be found in this [issue](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/issues/9) |
-| --- |
+# Modular development branch
+
+This branch is trying to make the client modular by rewriting all the networking in go, and using the PureBasic application pureley as frontend.
+This has the following advantages:
+
+- It will work headless.
+- It can have support for captcha solving or tracking.
+- It can retrieve things like fingerprints automatically.
+- It can have built in proxy and VPN support. (That's a thing for later)
+- It can support several similar websites/games. (Depending if someone writes a module for those games)
+- It will be possible to run multiple instances at once.
+- The PureBasic application will now serve as a central controller of all instances.
+- Important parts can be compiled by anyone with a freely available compiler.
+
+All the 'can' things depend on if and how they are implemented.
+I'm not sure yet if the main logic (Checking, queueing and placing pixels) will be inside each 'client' instance, or if all clients depend on a central application somewhere.
 
 # Pixelcanvas.io Custom Client
 
