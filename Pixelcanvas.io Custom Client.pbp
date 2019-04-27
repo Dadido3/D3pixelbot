@@ -7,7 +7,7 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2019-04-19 15:43" user="David Vogel" host="DAVIDS"/>
+    <lastopen date="2019-04-27 00:17" user="David Vogel" host="DAVIDS"/>
   </section>
   <section name="files">
     <file name="Includes\About.pbi">
@@ -52,7 +52,7 @@
       <directory value="Distribution\Windows x86\"/>
       <options thread="1" xpskin="1" onerror="1" debug="1"/>
       <purifier enable="1" granularity="1,1,1,1"/>
-      <compilecount enable="1" value="634"/>
+      <compilecount enable="1" value="635"/>
       <buildcount enable="1" value="114"/>
     </target>
   </section>

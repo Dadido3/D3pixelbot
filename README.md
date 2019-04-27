@@ -1,8 +1,7 @@
-| NOTE: As of april 2019 the bot has stopped working! It can't be fixed with an `use/effort ratio > 1`. Some more details are to be found in this ![issue](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/issues/9) |
+| NOTE: As of april 2019 the bot has stopped working! It can't be fixed with an `use/effort ratio > 1`. Some more details are to be found in this [issue](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/issues/9) |
 | --- |
 
-Pixelcanvas.io Custom Client
-=====
+# Pixelcanvas.io Custom Client
 
 This is a custom client / bot for Pixelcanvas.io.
 In contrast to similar projects this client is made to be configurable and usable without any hassles.
@@ -11,6 +10,7 @@ To create a job/template you just have to click "create" and change some setting
 
 As this project is just for the fun, some of the things that are considered possible future features may never be implemented.
 These include:
+
 - Captcha requester (Or even an interface to external captcha solving services)
 - Managing of multiple users (Proxies, VPNs or possibly lightweight clients which connect to a "mother client")
 - Manual pixel placement (But queued)
@@ -20,6 +20,7 @@ These include:
 Afterwards the data could be used to create timelapses of nearly any part of the canvas at any given time interval.
 
 ## Usage
+
 1. [Download](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/releases)
 2. Start the client.
 3. Click "Fingerprint" and enter your pixelcanvas.io fingerprint.
@@ -27,6 +28,7 @@ Afterwards the data could be used to create timelapses of nearly any part of the
 5. Let the client do the work until a message requester with the title "Captcha" pops up. You then have to use the pixelcanvas.io website and place a pixel which causes a recaptcha to appear. Solve the captcha(s), click "OK" on the requester, and the bot will work for another hour.
 
 ## Known problems (Which also may never be fixed)
+
 - If you zoom out and press "Load Viewport" the client may hit the process handle limit, as this will create a lot of small images.
   This could be fixed by caching or using bigger image chunks.
   (But meh, just don't let it load 10000 images ;) )
@@ -35,5 +37,6 @@ Afterwards the data could be used to create timelapses of nearly any part of the
 - There is probably more small stuff, but the client does its job.
 
 ## Screenshots
+
 A client running for a month:
 ![<Image missing>](/Screenshots/V0.946.png)
