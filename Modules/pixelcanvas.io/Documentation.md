@@ -32,6 +32,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
   - URL: `https://pixelcanvas.io/api/pixel`
 
   - Body: JSON Object:
+
     | Key | Type | Description | Example |
     | --- | ---- | ----------- | ------- |
     | x             | int
@@ -42,6 +43,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
     | token         | null
 
   - Result:JSON Object:
+
     | Key | Type | Description | Example |
     | --- | ---- | ----------- | ------- |
     | success       | bool
@@ -57,11 +59,13 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
   - URL: `https://pixelcanvas.io/api/me`
 
   - Body: JSON Object:
+
     | Key | Type | Description | Example |
     | --- | ---- | ----------- | ------- |
     | fingerprint   | string
   
   - Result:JSON Object:
+
     | Key | Type | Description | Example |
     | --- | ---- | ----------- | ------- |
     | id            | string | | `ip:12.34.56.78`
@@ -105,6 +109,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
   - URL: `https://pixelcanvas.io/api/online`
 
   - Result:JSON Object:
+
     | Key | Type | Description | Example |
     | --- | ---- | ----------- | ------- |
     | online            | int
@@ -114,6 +119,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
   - URL: `https://pixelcanvas.io/api/ws`
 
   - Result:JSON Object:
+
     | Key | Type | Description | Example |
     | --- | ---- | ----------- | ------- |
     | url            | string
@@ -130,6 +136,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 - Pixel Update
 
   Binary Frame:
+  
   | Offset  | Length | Type | Description | Example |
   | ------  | ------ | ---- | ----------- | ------- |
   | 0       | 1     | int               | Opcode, always 0xC1
