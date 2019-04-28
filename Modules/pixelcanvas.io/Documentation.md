@@ -100,7 +100,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
     `jx` and `jy` being the pixel-offset inside a chunk, and `ix` and `iy` being the chunk-offset inside a chunk collection.
     These counter variables must be greater or equal 0.
     `jx` and `jy` count from 0 to 63.
-    `ix` and `iy` count from 0 to 15.
+    `ix` and `iy` count from 0 to 14.
     Coordinate axis directions are pointing to the right and downwards.
     Even offsets are stored in the higher nibble.
 
@@ -136,7 +136,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 - Pixel Update
 
   Binary Frame:
-  
+
   | Offset  | Length | Type | Description | Example |
   | ------  | ------ | ---- | ----------- | ------- |
   | 0       | 1     | int               | Opcode, always 0xC1
