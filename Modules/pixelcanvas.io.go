@@ -11,18 +11,18 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type connectionPixelcanvasio struct {
+	OnlinePlayers          uint32 // Must be read atomically
+	GoroutineQueryQuit     chan struct{}
+	GoroutineWebsocketQuit chan struct{}
+}
+
 type pixelcanvasioResponsePlayers struct {
 	Online int `json:"online"`
 }
 
 type pixelcanvasioResponseWebsocketURL struct {
 	URL string `json:"url"`
-}
-
-type connectionPixelcanvasio struct {
-	OnlinePlayers          uint32 // Must be read atomically
-	GoroutineQueryQuit     chan struct{}
-	GoroutineWebsocketQuit chan struct{}
 }
 
 func newPixelcanvasio() (*connectionPixelcanvasio, error) {
@@ -36,13 +36,19 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 		queryTicker := time.NewTicker(10 * time.Second)
 		defer queryTicker.Stop()
 
+		getOnlinePlayers := func() {
+			response := &pixelcanvasioResponsePlayers{}
+			if err := getJSON("https://pixelcanvas.io/api/online", response); err == nil {
+				atomic.StoreUint32(&con.OnlinePlayers, uint32(response.Online))
+				log.Printf("Player amount: %v", response.Online)
+			}
+		}
+		getOnlinePlayers()
+
 		for {
 			select {
 			case <-queryTicker.C:
-				response := &pixelcanvasioResponsePlayers{}
-				if err := getJSON("https://pixelcanvas.io/api/online", response); err == nil {
-					atomic.StoreUint32(&con.OnlinePlayers, uint32(response.Online))
-				}
+				getOnlinePlayers()
 			case <-con.GoroutineQueryQuit:
 				return
 			}
@@ -53,12 +59,10 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 	go func(con *connectionPixelcanvasio) {
 		waitTime := 0 * time.Second
 		for {
-			waitTimer := time.NewTimer(waitTime)
-
 			select {
 			case <-con.GoroutineWebsocketQuit:
 				return
-			case <-waitTimer.C:
+			case <-time.After(waitTime):
 			}
 
 			// Any following connection attempt should be delayed a few seconds
@@ -79,11 +83,24 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 				log.Printf("Failed to connect to websocket server %v: %v", u.String(), err)
 				continue
 			}
-			defer c.Close()
+
+			// Wait for and handle external close events, or connection errors.
+			quitChannel := make(chan struct{})
+			go func(c *websocket.Conn, quitChannel chan struct{}) {
+				select {
+				case <-con.GoroutineWebsocketQuit:
+					c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+					select {
+					case <-quitChannel:
+					case <-time.After(time.Second):
+					}
+				case <-quitChannel:
+				}
+				c.Close()
+			}(c, quitChannel)
 
 			// Handle events
 			for {
-				// TODO: Put select for the quit and websocket events here
 				_, message, err := c.ReadMessage()
 				if err != nil {
 					log.Printf("Websocket connection error: %v", err)
@@ -108,6 +125,8 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 
 				}
 			}
+			close(quitChannel)
+
 		}
 	}(con)
 
