@@ -51,9 +51,13 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
     | errors        | array | contains `{msg: ...}` objects
 
     - Possible error msg strings:
-      - `You are using a proxy!!!11!one`
-      - `You must provide a token`
-      - `You must wait`
+
+      | msg | Description |
+      | --- | ----------- |
+      | `You are using a proxy!!!11!one` | Game over, IP is blacklisted |
+      | `You must provide a token` | Server asks for recaptcha token, to verify your humanness |
+      | `You are using an old version. Please, refresh the page to get the newest version.` | The amount of keys inside the JSON object is not 6 |
+      | `You must wait` | Wait you must <(-_-)> |
 
 - Me authentication
   - URL: `https://pixelcanvas.io/api/me`
@@ -170,3 +174,14 @@ webpackJsonp([0],{1000: (function(module, __webpack_exports__, __webpack_require
 
 This is assuming that the fingerprint2 library was packed as module 611 with WebPack.
 And that module 1000 isn't used already.
+
+### Handle recaptcha and custom fingerprint
+
+`TODO`
+
+Idea (Using headless browser with custom page showing a recpatcha):
+
+1. Create some valid fingerprint on start
+2. Authenticate with that fingerprint
+3. If server requests token, run recaptcha in headless browser (Using the `RECAPTCHA_SITEKEY`)
+4. On success, send pixel post request with token
