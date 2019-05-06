@@ -77,6 +77,14 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
     | center        | array | x, y coordinates of your center | `[0,2000]`
     | waitSeconds   | float | Seconds until next pixel can be drawn
 
+  - Error: JSON Object:
+
+    | Key | Type | Description | Example |
+    | --- | ---- | ----------- | ------- |
+    | errors            | array | List of errors | `["You are using a proxy!"]`
+
+    In case of `["You are using a proxy!"]`, you are probably missing the origin header field.
+
 ## HTTPS Get methods
 
 - Download chunk collection (15x15 chunks):
