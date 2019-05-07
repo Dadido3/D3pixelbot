@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,21 +13,19 @@ import (
 )
 
 type connectionPixelcanvasio struct {
-	OnlinePlayers          uint32 // Must be read atomically
-	GoroutineQueryQuit     chan struct{}
-	GoroutineWebsocketQuit chan struct{}
-}
+	Fingerprint      string
+	OnlinePlayers    uint32 // Must be read atomically
+	CenterX, CenterY int
+	AuthName, AuthID string
+	NextPixel        time.Time
 
-type pixelcanvasioResponsePlayers struct {
-	Online int `json:"online"`
-}
-
-type pixelcanvasioResponseWebsocketURL struct {
-	URL string `json:"url"`
+	GoroutineQueryQuit     chan struct{} // Closing this channel stops the goroutine
+	GoroutineWebsocketQuit chan struct{} // Closing this channel stops the goroutine
 }
 
 func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 	con := &connectionPixelcanvasio{
+		Fingerprint:            "11111111111111111111111111111111",
 		GoroutineQueryQuit:     make(chan struct{}),
 		GoroutineWebsocketQuit: make(chan struct{}),
 	}
@@ -37,7 +36,9 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 		defer queryTicker.Stop()
 
 		getOnlinePlayers := func() {
-			response := &pixelcanvasioResponsePlayers{}
+			response := &struct {
+				Online int `json:"online"`
+			}{}
 			if err := getJSON("https://pixelcanvas.io/api/online", response); err == nil {
 				atomic.StoreUint32(&con.OnlinePlayers, uint32(response.Online))
 				log.Printf("Player amount: %v", response.Online)
@@ -75,7 +76,7 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 				continue
 			}
 
-			u.RawQuery = "fingerprint=11111111111111111111111111111111"
+			u.RawQuery = "fingerprint=" + con.Fingerprint
 
 			// Connect to websocket server
 			c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -130,6 +131,8 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 		}
 	}(con)
 
+	fmt.Print(con.authenticateMe())
+
 	return con, nil
 }
 
@@ -138,7 +141,9 @@ func (con *connectionPixelcanvasio) getOnlinePlayers() int {
 }
 
 func (con *connectionPixelcanvasio) getWebsocketURL() (u *url.URL, err error) {
-	response := &pixelcanvasioResponseWebsocketURL{}
+	response := &struct {
+		URL string `json:"url"`
+	}{}
 	if err := getJSON("https://pixelcanvas.io/api/ws", response); err != nil {
 		return nil, fmt.Errorf("Couldn't retrieve websocket URL: %v", err)
 	}
@@ -149,6 +154,35 @@ func (con *connectionPixelcanvasio) getWebsocketURL() (u *url.URL, err error) {
 	}
 
 	return u, nil
+}
+
+func (con *connectionPixelcanvasio) authenticateMe() error {
+	request := struct {
+		Fingerprint string `json:"fingerprint"`
+	}{
+		Fingerprint: con.Fingerprint,
+	}
+
+	statusCode, _, body, err := postJSON("https://pixelcanvas.io/api/me", "https://pixelcanvas.io/", request)
+	if err != nil {
+		return err
+	}
+
+	response := &struct {
+		ID          string  `json:"id"`
+		Name        string  `json:"name"`
+		Center      []int   `json:"center"`
+		WaitSeconds float32 `json:"waitSeconds"`
+	}{}
+	if err := json.Unmarshal(body, response); err != nil {
+		return err
+	}
+
+	if statusCode != 200 {
+		return fmt.Errorf("Authentication failed with wrong status code: %v (body: %v)", statusCode, string(body))
+	}
+
+	return nil
 }
 
 func (con *connectionPixelcanvasio) Close() {
