@@ -39,3 +39,13 @@ func postJSON(url string, origin string, structure interface{}) (statusCode int,
 
 	return resp.StatusCode, resp.Header, body, nil
 }
+
+func divideFloor(a, b int) int {
+	temp := a / b
+
+	if ((a < 0) != (b < 0)) && (a%b != 0) {
+		return temp - 1
+	}
+
+	return temp
+}

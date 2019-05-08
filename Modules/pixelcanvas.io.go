@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"log"
 	"net/url"
 	"sync/atomic"
@@ -12,22 +13,52 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var pixelcanvasioChunkSize = pixelSize{64, 64}
+var pixelcanvasioChunkCollectionSize = chunkSize{15, 15} // Arraysize of chunks that's returned on the bigchunk request
+
+var pixelcanvasioPalette = []color.Color{
+	color.RGBA{255, 255, 255, 255},
+	color.RGBA{228, 228, 228, 255},
+	color.RGBA{136, 136, 136, 255},
+	color.RGBA{34, 34, 34, 255},
+	color.RGBA{255, 167, 209, 255},
+	color.RGBA{229, 0, 0, 255},
+	color.RGBA{229, 149, 0, 255},
+	color.RGBA{160, 106, 66, 255},
+	color.RGBA{229, 217, 0, 255},
+	color.RGBA{148, 224, 68, 255},
+	color.RGBA{2, 190, 1, 255},
+	color.RGBA{0, 211, 221, 255},
+	color.RGBA{0, 131, 199, 255},
+	color.RGBA{0, 0, 234, 255},
+	color.RGBA{207, 110, 228, 255},
+	color.RGBA{130, 0, 128, 255},
+}
+
 type connectionPixelcanvasio struct {
 	Fingerprint      string
 	OnlinePlayers    uint32 // Must be read atomically
-	CenterX, CenterY int
+	Center           pixelCoordinate
 	AuthName, AuthID string
 	NextPixel        time.Time
 
-	GoroutineQueryQuit     chan struct{} // Closing this channel stops the goroutine
-	GoroutineWebsocketQuit chan struct{} // Closing this channel stops the goroutine
+	Canvas *canvas
+
+	GoroutineQuit chan struct{} // Closing this channel stops the goroutine
 }
 
-func newPixelcanvasio() (*connectionPixelcanvasio, error) {
+func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 	con := &connectionPixelcanvasio{
-		Fingerprint:            "11111111111111111111111111111111",
-		GoroutineQueryQuit:     make(chan struct{}),
-		GoroutineWebsocketQuit: make(chan struct{}),
+		Fingerprint:   "11111111111111111111111111111111",
+		GoroutineQuit: make(chan struct{}),
+	}
+
+	if createCanvas {
+		var err error
+		con.Canvas, err = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Main goroutine that handles queries and timed things
@@ -50,7 +81,7 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 			select {
 			case <-queryTicker.C:
 				getOnlinePlayers()
-			case <-con.GoroutineQueryQuit:
+			case <-con.GoroutineQuit:
 				return
 			}
 		}
@@ -61,7 +92,7 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 		waitTime := 0 * time.Second
 		for {
 			select {
-			case <-con.GoroutineWebsocketQuit:
+			case <-con.GoroutineQuit:
 				return
 			case <-time.After(waitTime):
 			}
@@ -89,7 +120,7 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 			quitChannel := make(chan struct{})
 			go func(c *websocket.Conn, quitChannel chan struct{}) {
 				select {
-				case <-con.GoroutineWebsocketQuit:
+				case <-con.GoroutineQuit:
 					c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 					select {
 					case <-quitChannel:
@@ -131,7 +162,7 @@ func newPixelcanvasio() (*connectionPixelcanvasio, error) {
 		}
 	}(con)
 
-	fmt.Print(con.authenticateMe())
+	//fmt.Print(con.authenticateMe())
 
 	return con, nil
 }
@@ -182,13 +213,23 @@ func (con *connectionPixelcanvasio) authenticateMe() error {
 		return fmt.Errorf("Authentication failed with wrong status code: %v (body: %v)", statusCode, string(body))
 	}
 
+	if len(response.Center) < 2 {
+		return fmt.Errorf("Invalid center given in authentication response")
+	}
+
+	con.AuthID = response.ID
+	con.AuthName = response.Name
+	con.Center.X, con.Center.Y = response.Center[0], response.Center[1]
+	con.NextPixel = time.Now().Add(time.Duration(response.WaitSeconds*1000) * time.Millisecond)
+
 	return nil
 }
 
 func (con *connectionPixelcanvasio) Close() {
-	// Close channels to send the "done" signal
-	close(con.GoroutineQueryQuit)
-	close(con.GoroutineWebsocketQuit)
+	// Stop gorountines gracefully
+	close(con.GoroutineQuit)
+
+	// TODO: Wait until gorountines are stopped
 
 	return
 }
