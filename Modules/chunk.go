@@ -18,9 +18,9 @@ type pixelQueueElement struct {
 type chunk struct {
 	sync.RWMutex
 
-	Rect    image.Rectangle
-	Palette color.Palette
-	Image   *image.Paletted // TODO: Compress or unload image when not needed
+	//Rect    image.Rectangle
+	//Palette color.Palette
+	Image *image.Paletted // TODO: Compress or unload image when not needed
 
 	pixelQueue []pixelQueueElement
 	Valid      bool
@@ -28,8 +28,8 @@ type chunk struct {
 
 func newChunk(rect image.Rectangle, p color.Palette) (*chunk, error) {
 	chunk := &chunk{
-		Rect:       rect,
-		Palette:    p,
+		//Rect:       rect,
+		//Palette:    p,
 		Image:      image.NewPaletted(rect, p),
 		pixelQueue: []pixelQueueElement{},
 	}
@@ -41,7 +41,7 @@ func (chu *chunk) getPixel(pos pixelCoordinate) color.Color {
 	chu.RLock()
 	defer chu.RUnlock()
 
-	return chu.Image.At(pos.X, pos.Y) // TODO: Make this call secure, it causes a runtime error when it tries to retrieve a index outside the palette.
+	return chu.Image.At(pos.X, pos.Y) // TODO: Make this call secure, it causes a runtime error when it tries to retrieve an index outside the palette.
 }
 
 func (chu *chunk) getPixelIndex(pos pixelCoordinate) uint8 {
@@ -73,32 +73,30 @@ func (chu *chunk) setPixelIndex(pos pixelCoordinate, colorIndex uint8) {
 
 // Overwrites the image data, and validates the chunk.
 // The image rectangle needs to be aligned with the chunk rectangle.
+//
+// All queued pixels will be replayed when this function is called.
+// This helps to prevent inconsitencies while downloading chunks.
 func (chu *chunk) setImage(img image.Image) {
 	chu.Lock()
 	defer chu.Unlock()
 
 	draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over)
 
-	return
+	// Replay all the queued pixels
+	for _, pqe := range chu.pixelQueue {
+		chu.Image.SetColorIndex(pqe.Pos.X, pqe.Pos.Y, pqe.ColorIndex)
+	}
+
+	chu.Valid = true
 }
 
 func (chu *chunk) getImageCopy() image.Image {
 	img := chu.getImageCopyPaletted()
 
-	return &img
+	return img
 }
 
-// Overwrites the image data, and validates the chunk.
-func (chu *chunk) setImagePaletted(img image.Paletted) {
-	chu.Lock()
-	defer chu.Unlock()
-
-	chu.Image = &img
-	chu.Valid = true
-	return
-}
-
-func (chu *chunk) getImageCopyPaletted() image.Paletted {
+func (chu *chunk) getImageCopyPaletted() *image.Paletted {
 	chu.RLock()
 	defer chu.RUnlock()
 
@@ -106,10 +104,10 @@ func (chu *chunk) getImageCopyPaletted() image.Paletted {
 	copy(img.Pix, chu.Image.Pix)
 	copy(img.Palette, chu.Image.Palette)
 
-	return img
+	return &img
 }
 
-// Invalidates the image, which shows that this chunk contains older or completely wrong data.
+// Invalidates the image, which shows that this chunk contains old or completely wrong data.
 // While a chunk is invalid, all setPixel() calls will be queued.
 // The only way to make a chunk valid, is by using setImage().
 func (chu *chunk) invalidateImage(image.RGBA) {
@@ -117,7 +115,7 @@ func (chu *chunk) invalidateImage(image.RGBA) {
 	defer chu.Unlock()
 
 	chu.Valid = false
-	chu.pixelQueue = []pixelQueueElement{}
+	chu.pixelQueue = []pixelQueueElement{} // Empty queue on new invalidation.
 
 	return
 }
