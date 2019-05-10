@@ -45,7 +45,7 @@ type connectionPixelcanvasio struct {
 
 	Canvas *canvas
 
-	GoroutineQuit chan struct{} // Closing this channel stops the goroutine
+	GoroutineQuit chan struct{} // Closing this channel stops the goroutines
 }
 
 func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
@@ -57,6 +57,8 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 	if createCanvas {
 		con.Canvas = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
 	}
+
+	// TODO: Get needed chunks from canvas, and query them in a goroutine
 
 	// Main goroutine that handles queries and timed things
 	go func(con *connectionPixelcanvasio) {

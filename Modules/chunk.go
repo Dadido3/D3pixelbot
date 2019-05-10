@@ -96,7 +96,7 @@ func (chu *chunk) setImage(img image.Image) error {
 		return fmt.Errorf("The chunk boundaries aren't a subset of the image boundaries")
 	}
 
-	draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over)
+	draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over) // TODO: Check if the sp parameter is correct
 
 	// Replay all the queued pixels
 	for _, pqe := range chu.PixelQueue {
@@ -109,13 +109,7 @@ func (chu *chunk) setImage(img image.Image) error {
 	return nil
 }
 
-func (chu *chunk) getImageCopy() image.Image {
-	img := chu.getImageCopyPaletted()
-
-	return img
-}
-
-func (chu *chunk) getImageCopyPaletted() *image.Paletted {
+func (chu *chunk) getImageCopy() *image.Paletted {
 	chu.RLock()
 	defer chu.RUnlock()
 
