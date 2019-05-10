@@ -40,11 +40,23 @@ func postJSON(url string, origin string, structure interface{}) (statusCode int,
 	return resp.StatusCode, resp.Header, body, nil
 }
 
+// Integer division that rounds to the next integer towards negative infinity
 func divideFloor(a, b int) int {
 	temp := a / b
 
-	if ((a < 0) != (b < 0)) && (a%b != 0) {
+	if ((a ^ b) < 0) && (a%b != 0) {
 		return temp - 1
+	}
+
+	return temp
+}
+
+// Integer division that rounds to the next integer towards positive infinity
+func divideCeil(a, b int) int {
+	temp := a / b
+
+	if ((a ^ b) >= 0) && (a%b != 0) {
+		return temp + 1
 	}
 
 	return temp

@@ -13,6 +13,9 @@ func main() {
 	//	log.Fatal(err)
 	//}
 
+	canvas := newCanvas(pixelSize{64, 64}, pixelcanvasioPalette)
+	log.Println(canvas.getChunk(chunkCoordinate{0, 0}, false))
+
 	buf := bufio.NewReader(os.Stdin)
 	fmt.Print("> ")
 	sentence, err := buf.ReadBytes('\n')

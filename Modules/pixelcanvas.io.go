@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/color"
 	"log"
 	"net/url"
@@ -38,7 +39,7 @@ var pixelcanvasioPalette = []color.Color{
 type connectionPixelcanvasio struct {
 	Fingerprint      string
 	OnlinePlayers    uint32 // Must be read atomically
-	Center           pixelCoordinate
+	Center           image.Point
 	AuthName, AuthID string
 	NextPixel        time.Time
 
@@ -54,11 +55,7 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 	}
 
 	if createCanvas {
-		var err error
-		con.Canvas, err = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
-		if err != nil {
-			return nil, err
-		}
+		con.Canvas = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
 	}
 
 	// Main goroutine that handles queries and timed things
