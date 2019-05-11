@@ -1,6 +1,7 @@
 package main
 
 // TODO: Write changes to disk
+// TODO: Logic to unload not needed chunks after time
 
 import (
 	"fmt"
@@ -11,15 +12,31 @@ import (
 	"sync"
 )
 
-type canvasEventPixel struct {
+type canvasEventSetPixel struct {
 	Pos        image.Point
 	ColorIndex uint8
 }
 
-// TODO: More events: invalidate chunk, update image, revalidate (when just a few pixels changed)
+type canvasEventInvalidateRect struct {
+	Rect image.Rectangle
+}
 
-type canvasListener struct {
+type canvasEventInvalidateAll struct{}
+
+type canvasEventSetImage struct {
+	Image *image.Paletted
+}
+
+// TODO: Add more events: revalidate (when just a few pixels have changed after redownloading/validating a chunk)
+
+type canvasListener interface {
+	handleSetPixel(pos image.Point, colorInde uint8)
+	handleInvalidateRect(rect image.Rectangle)
+	handleInvalidateAll()
+	handleSetImage(img *image.Paletted)
+
 	// TODO: Add listening rectangles, outgoing channel and more in here
+	// TODO: Add a way so listeners can define a list of chunks or rects the canvas (the game client finally) has to keep valid
 }
 
 type canvas struct {
@@ -30,8 +47,9 @@ type canvas struct {
 	ChunkSize pixelSize
 	Palette   color.Palette
 
-	EventChan     chan interface{} // Forwards incoming changes to the broadcaster goroutine
-	GoroutineQuit chan struct{}    // Closing this channel stops the goroutines
+	EventChan     chan interface{}  // Forwards incoming changes to the broadcaster goroutine
+	GoroutineQuit chan struct{}     // Closing this channel stops the goroutines
+	Listeners     []*canvasListener // Events get forwarded to these listeners
 }
 
 func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
@@ -39,8 +57,9 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 		Chunks:        make(map[chunkCoordinate]*chunk, 0),
 		ChunkSize:     chunkSize,
 		Palette:       palette,
-		EventChan:     make(chan interface{}),
+		EventChan:     make(chan interface{}), // TODO: Determine optimal chan size
 		GoroutineQuit: make(chan struct{}),
+		Listeners:     []*canvasListener{},
 	}
 
 	// Goroutine that handles event broadcasting to listeners, and writes events to disk.
@@ -49,7 +68,7 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 			select {
 			case event := <-can.EventChan:
 				switch event := event.(type) {
-				case canvasEventPixel:
+				case canvasEventSetPixel:
 					log.Printf("Received pixel event at %v with colorIndex %v\n", event.Pos, event.ColorIndex)
 					// TODO: Broadcast and write to disk
 				default:
@@ -98,7 +117,7 @@ func (can *canvas) getChunk(coord chunkCoordinate, createIfNonexistent bool) (*c
 }
 
 func (can *canvas) getChunks(rect chunkRectangle, createIfNonexistent, ignoreNonexistent bool) ([]*chunk, error) {
-	rectTemp := image.Rectangle(rect).Canon()
+	rectTemp := rect.Canon()
 	chunks := []*chunk{}
 
 	for iy := rectTemp.Min.Y; iy < rectTemp.Max.Y; iy++ {
@@ -146,7 +165,7 @@ func (can *canvas) setPixelIndex(pos image.Point, colorIndex uint8) error {
 	chunkCoord := can.ChunkSize.getChunkCoord(pos)
 
 	// Forward event to broadcaster goroutine
-	can.EventChan <- canvasEventPixel{
+	can.EventChan <- canvasEventSetPixel{
 		Pos:        pos,
 		ColorIndex: colorIndex,
 	}
@@ -170,7 +189,14 @@ func (can *canvas) setImage(img image.Image) error {
 	}
 
 	for _, chunk := range chunks {
-		chunk.setImage(img)
+		resultImg, err := chunk.setImage(img)
+		if err != nil {
+			return fmt.Errorf("Could not draw image at %v: %v", img.Bounds(), err)
+		}
+		// Forward event to broadcaster goroutine
+		can.EventChan <- canvasEventSetImage{
+			Image: resultImg,
+		}
 	}
 
 	return nil
@@ -197,9 +223,17 @@ func (can *canvas) getImageCopy(rect image.Rectangle) (*image.Paletted, error) {
 }
 
 // Invalidates all chunks the rectangle intersects with.
+// This will create new chunks if needed.
+//
+// This should be used to signal the redownloading of a specific area or chunk
 func (can *canvas) invalidateRect(rect image.Rectangle) error {
+	// Forward event to broadcaster goroutine
+	can.EventChan <- canvasEventInvalidateRect{
+		Rect: rect,
+	}
+
 	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
-	chunks, err := can.getChunks(chunkRect, false, true)
+	chunks, err := can.getChunks(chunkRect, true, true)
 	if err != nil {
 		return fmt.Errorf("Could not invalidate rectangle %v: %v", rect, err)
 	}
@@ -212,9 +246,15 @@ func (can *canvas) invalidateRect(rect image.Rectangle) error {
 }
 
 // Invalidates all chunks.
+// This will only affect existing chunks.
+//
+// That should be used to signal connection loss or the redownloading of everything
 func (can *canvas) invalidateAll() error {
 	can.RLock()
 	defer can.RUnlock()
+
+	// Forward event to broadcaster goroutine
+	can.EventChan <- canvasEventInvalidateAll{}
 
 	for _, chunk := range can.Chunks {
 		chunk.invalidateImage()

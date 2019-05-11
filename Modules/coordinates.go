@@ -5,9 +5,9 @@ import "image"
 type pixelSize image.Point // Size of something in pixels
 
 type (
-	chunkCoordinate image.Point     // Coordinate of something in chunks
-	chunkRectangle  image.Rectangle // A rectangle something in chunks
-	chunkSize       image.Point     // A size of something in chunks
+	chunkCoordinate image.Point               // Coordinate of something in chunks
+	chunkRectangle  struct{ image.Rectangle } // A rectangle something in chunks
+	chunkSize       image.Point               // A size of something in chunks
 )
 
 // Converts a pixel coordinate into a chunk coordinate containing the given pixel
@@ -32,10 +32,10 @@ func (ps pixelSize) getOuterChunkRect(rect image.Rectangle) chunkRectangle {
 		Y: divideCeil(rectTemp.Max.Y, ps.Y),
 	}
 
-	return chunkRectangle{
+	return chunkRectangle{image.Rectangle{
 		Min: min,
 		Max: max,
-	}
+	}}
 }
 
 // Converts a pixel rectangle into the closest possible rectangle in chunk coordinates.
@@ -61,8 +61,8 @@ func (ps pixelSize) getInnerChunkRect(rect image.Rectangle) chunkRectangle {
 		max.Y = min.Y
 	}
 
-	return chunkRectangle{
+	return chunkRectangle{image.Rectangle{
 		Min: min,
 		Max: max,
-	}
+	}}
 }

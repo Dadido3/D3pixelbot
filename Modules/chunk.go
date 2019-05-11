@@ -19,6 +19,7 @@ type chunk struct {
 	Rect    image.Rectangle
 	Palette color.Palette
 	Image   *image.Paletted // TODO: Compress or unload image when not needed
+	// TODO: Rewrite to handle any image type. So it can handle arbitrary colors from recordings
 
 	PixelQueue []pixelQueueElement
 	Valid      bool
@@ -88,12 +89,13 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 //
 // All queued pixels will be replayed when this function is called.
 // This helps to prevent inconsitencies while downloading chunks.
-func (chu *chunk) setImage(img image.Image) error {
+// The result image is an up to date copy containing all queued changes.
+func (chu *chunk) setImage(img image.Image) (*image.Paletted, error) {
 	chu.Lock()
 	defer chu.Unlock()
 
 	if !chu.Rect.In(img.Bounds()) {
-		return fmt.Errorf("The chunk boundaries aren't a subset of the image boundaries")
+		return nil, fmt.Errorf("The image doesn't fill the chunk completely")
 	}
 
 	draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over) // TODO: Check if the sp parameter is correct
@@ -106,7 +108,11 @@ func (chu *chunk) setImage(img image.Image) error {
 	chu.PixelQueue = []pixelQueueElement{}
 	chu.Valid = true
 
-	return nil
+	imgCopy := *chu.Image
+	copy(imgCopy.Pix, chu.Image.Pix)
+	copy(imgCopy.Palette, chu.Image.Palette)
+
+	return &imgCopy, nil
 }
 
 func (chu *chunk) getImageCopy() *image.Paletted {
