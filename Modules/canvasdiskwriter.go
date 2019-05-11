@@ -52,11 +52,13 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	err = binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		MagicNumber             uint32
 		Version                 uint16 // File format version
+		Time                    int64
 		ChunkWidth, ChunkHeight uint32
-		PaletteSize             uint16
+		PaletteSize             uint16 // Size in entries, max 256
 	}{
 		MagicNumber: 1128616528, // ASCII "PREC" in little endian
 		Version:     1,
+		Time:        time.Now().UnixNano(),
 		ChunkWidth:  uint32(can.ChunkSize.X),
 		ChunkHeight: uint32(can.ChunkSize.Y),
 		PaletteSize: uint16(len(can.Palette)),
@@ -87,10 +89,12 @@ func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) e
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType uint8
+		Time     int64
 		X, Y     int32
 		R, G, B  uint8
 	}{
 		DataType: 10,
+		Time:     time.Now().UnixNano(),
 		X:        int32(pos.X),
 		Y:        int32(pos.Y),
 		R:        uint8(r),
@@ -106,9 +110,11 @@ func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) e
 func (cdw *canvasDiskWriter) handleInvalidateRect(rect image.Rectangle) error {
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType               uint8
+		Time                   int64
 		MinX, MinY, MaxX, MaxY int32
 	}{
 		DataType: 20,
+		Time:     time.Now().UnixNano(),
 		MinX:     int32(rect.Min.X),
 		MinY:     int32(rect.Min.Y),
 		MaxX:     int32(rect.Max.X),
@@ -123,7 +129,9 @@ func (cdw *canvasDiskWriter) handleInvalidateRect(rect image.Rectangle) error {
 func (cdw *canvasDiskWriter) handleInvalidateAll() error {
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType uint8
+		Time     int64
 	}{
+		Time:     time.Now().UnixNano(),
 		DataType: 21,
 	})
 	if err != nil {
@@ -140,11 +148,13 @@ func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType      uint8
+		Time          int64
 		X, Y          int32
 		Width, Height uint16
 		Size          uint32 // Size of the RGBA data in bytes TODO: Reduce the image data to just RGB
 	}{
 		DataType: 30,
+		Time:     time.Now().UnixNano(),
 		X:        int32(bounds.Min.X),
 		Y:        int32(bounds.Min.Y),
 		Width:    uint16(bounds.Dx()),
@@ -162,6 +172,7 @@ func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 }
 
 func (cdw *canvasDiskWriter) Close() {
+	cdw.handleInvalidateAll()
 	cdw.ZipWriter.Close()
 	cdw.File.Close()
 }
