@@ -1,3 +1,17 @@
 {
-    "go.formatTool": "goimports"
+    "go.formatTool": "goimports",
+    "cSpell.words": [
+        "Pixelcanvas",
+        "SITEKEY",
+        "Timelapse",
+        "VPNs",
+        "Vogel",
+        "captcha",
+        "coord",
+        "fingerprintjs",
+        "keyframes",
+        "pixelcanvasio",
+        "recaptcha",
+        "timelapses"
+    ]
 }

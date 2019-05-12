@@ -57,7 +57,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	zipWriter, err := gzip.NewWriterLevel(f, gzip.BestCompression)
 	if err != nil {
 		f.Close()
-		return nil, fmt.Errorf("Can't initalize compression %v: %v", filePath, err)
+		return nil, fmt.Errorf("Can't initialize compression %v: %v", filePath, err)
 	}
 	cdw.ZipWriter = zipWriter
 

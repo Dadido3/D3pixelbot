@@ -142,7 +142,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 
 1. Make "Get websocket URL" HTTPS request
 2. Connect to WS server: `URL + "/?fingerprint=" + fingerprint`  
-   The fingerprint doesn't need to be same as sent in the me request. But it needs to be a valid hexa decimal, 32 nibbles long.
+   The fingerprint doesn't need to be same as sent in the me request. But it needs to be a valid hexadecimal, 32 nibbles long.
 
 ### Incoming
 
@@ -187,7 +187,7 @@ And that module 1000 isn't used already.
 
 `TODO`
 
-Idea (Using headless browser with custom page showing a recpatcha):
+Idea (Using headless browser with custom page showing a recaptcha):
 
 1. Create some valid fingerprint on start
 2. Authenticate with that fingerprint

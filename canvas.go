@@ -52,11 +52,11 @@ type canvasListener interface {
 	handleInvalidateAll() error
 	handleInvalidateRect(rect image.Rectangle) error
 	handleSetImage(img *image.Paletted) error
-	handleSetPixel(pos image.Point, colorInde uint8) error
+	handleSetPixel(pos image.Point, colorIndex uint8) error
 	handleSignalDownload(rect image.Rectangle) error
 
 	// TODO: Add listening rectangles, outgoing channel and more in here
-	// TODO: Add a way so listeners can define a list of chunks or rects the canvas (the game client finally) has to keep valid
+	// TODO: Add a way so listeners can define a list of chunks or rectangles the canvas (the game client finally) has to keep valid
 }
 
 type canvas struct {
@@ -109,7 +109,7 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 						listener.handleSignalDownload(event.Rect)
 					}
 				default:
-					log.Fatalf("Unknown event occured: %T", event)
+					log.Fatalf("Unknown event occurred: %T", event)
 				}
 			case <-can.GoroutineQuit:
 				return
@@ -347,10 +347,10 @@ func (can *canvas) signalDownload(rect image.Rectangle) error {
 }
 
 func (can *canvas) Close() {
-	// Stop gorountines gracefully
+	// Stop goroutines gracefully
 	close(can.GoroutineQuit)
 
-	// TODO: Wait until gorountines are stopped
+	// TODO: Wait until goroutines are stopped
 
 	return
 }

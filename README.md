@@ -1,6 +1,6 @@
 # Modular development branch
 
-This branch is trying to make the client modular by rewriting all the networking in go, and using the PureBasic application pureley as frontend.
+This branch is trying to make the client modular by rewriting all the networking in go, and using the PureBasic application purely as frontend.
 This has the following advantages:
 
 - It will work headless.
@@ -47,7 +47,7 @@ Afterwards the data could be used to create timelapses of nearly any part of the
   This could be fixed by caching or using bigger image chunks.
   (But meh, just don't let it load 10000 images ;) )
 - Most network communication is blocking (Except chunk downloading). But that shouldn't cause any troubles.
-- Estimations and pixelrates are wrong after starting the client, but they will show correct values after 30 placed pixels.
+- Estimations and pixel rates are wrong after starting the client, but they will show correct values after 30 placed pixels.
 - There is probably more small stuff, but the client does its job.
 
 ## Screenshots

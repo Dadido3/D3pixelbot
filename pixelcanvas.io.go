@@ -241,10 +241,10 @@ func (con *connectionPixelcanvasio) authenticateMe() error {
 }
 
 func (con *connectionPixelcanvasio) Close() {
-	// Stop gorountines gracefully
+	// Stop goroutines gracefully
 	close(con.GoroutineQuit)
 
-	// TODO: Wait until gorountines are stopped
+	// TODO: Wait until goroutines are stopped
 
 	return
 }
