@@ -1,3 +1,19 @@
+/*  D3pixelbot - Custom client, recorder and bot for pixel drawing games
+    Copyright (C) 2019  David Vogel
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
 package main
 
 import (
@@ -6,6 +22,7 @@ import (
 	"image/color"
 	"image/draw"
 	"sync"
+	"time"
 )
 
 type pixelQueueElement struct {
@@ -21,16 +38,18 @@ type chunk struct {
 	Image   *image.Paletted // TODO: Compress or unload image when not needed
 	// TODO: Rewrite to handle any image type. So it can handle arbitrary colors from recordings
 
-	PixelQueue []pixelQueueElement
-	Valid      bool
+	PixelQueue    []pixelQueueElement
+	Valid         bool
+	LastQueryTime time.Time // Point in time, when that chunk was queried last time. If this chunk hasn't been queried for some period, it will be unloaded.
 }
 
 func newChunk(rect image.Rectangle, p color.Palette) *chunk {
 	chunk := &chunk{
-		Rect:       rect.Canon(),
-		Palette:    p,
-		Image:      image.NewPaletted(rect, p),
-		PixelQueue: []pixelQueueElement{},
+		Rect:          rect.Canon(),
+		Palette:       p,
+		Image:         image.NewPaletted(rect, p),
+		PixelQueue:    []pixelQueueElement{},
+		LastQueryTime: time.Now(),
 	}
 
 	return chunk

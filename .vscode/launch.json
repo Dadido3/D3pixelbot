@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch go pixel client",
+            "name": "Launch D3pixelbot",
             "type": "go",
             "request": "launch",
             "mode": "auto",
