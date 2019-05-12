@@ -34,8 +34,8 @@ func Test_canvas_newCanvasDiskWriter(t *testing.T) {
 
 	for i := 0; i < 128; i++ {
 		rect := image.Rectangle{image.Point{i * 64, i * 64}, image.Point{i*64 + 64, i*64 + 64}}
-		if err := cdw.handleInvalidateRect(rect); err != nil {
-			t.Errorf("Can't invalidate rectangle %v: %v", rect, err)
+		if err := cdw.handleSignalDownload(rect); err != nil {
+			t.Errorf("Can't signal download at rectangle %v: %v", rect, err)
 		}
 	}
 

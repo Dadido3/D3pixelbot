@@ -156,6 +156,25 @@ func (cdw *canvasDiskWriter) handleInvalidateAll() error {
 	return nil
 }
 
+func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle) error {
+	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
+		DataType               uint8
+		Time                   int64
+		MinX, MinY, MaxX, MaxY int32
+	}{
+		DataType: 22,
+		Time:     time.Now().UnixNano(),
+		MinX:     int32(rect.Min.X),
+		MinY:     int32(rect.Min.Y),
+		MaxX:     int32(rect.Max.X),
+		MaxY:     int32(rect.Max.Y),
+	})
+	if err != nil {
+		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
+	}
+	return nil
+}
+
 func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 	bounds := img.Bounds()
 	imgRGBA := image.NewRGBA(bounds)

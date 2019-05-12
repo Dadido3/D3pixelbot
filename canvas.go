@@ -27,28 +27,33 @@ import (
 	"sync"
 )
 
-type canvasEventSetPixel struct {
-	Pos        image.Point
-	ColorIndex uint8
-}
+type canvasEventInvalidateAll struct{}
 
 type canvasEventInvalidateRect struct {
 	Rect image.Rectangle
 }
 
-type canvasEventInvalidateAll struct{}
-
 type canvasEventSetImage struct {
 	Image *image.Paletted
+}
+
+type canvasEventSetPixel struct {
+	Pos        image.Point
+	ColorIndex uint8
+}
+
+type canvasEventSignalDownload struct {
+	Rect image.Rectangle
 }
 
 // TODO: Add more events: revalidate (when just a few pixels have changed after redownloading/validating a chunk)
 
 type canvasListener interface {
-	handleSetPixel(pos image.Point, colorInde uint8) error
-	handleInvalidateRect(rect image.Rectangle) error
 	handleInvalidateAll() error
+	handleInvalidateRect(rect image.Rectangle) error
 	handleSetImage(img *image.Paletted) error
+	handleSetPixel(pos image.Point, colorInde uint8) error
+	handleSignalDownload(rect image.Rectangle) error
 
 	// TODO: Add listening rectangles, outgoing channel and more in here
 	// TODO: Add a way so listeners can define a list of chunks or rects the canvas (the game client finally) has to keep valid
@@ -98,6 +103,10 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 				case canvasEventInvalidateAll:
 					for listener := range can.Listeners {
 						listener.handleInvalidateAll()
+					}
+				case canvasEventSignalDownload:
+					for listener := range can.Listeners {
+						listener.handleSignalDownload(event.Rect)
 					}
 				default:
 					log.Fatalf("Unknown event occured: %T", event)
@@ -170,7 +179,9 @@ func (can *canvas) getChunks(rect chunkRectangle, createIfNonexistent, ignoreNon
 				// So it will never abort while it creates missing chunks
 				return nil, fmt.Errorf("Can't get all chunks: %v", err)
 			}
-			chunks = append(chunks, chunk)
+			if chunk != nil {
+				chunks = append(chunks, chunk)
+			}
 		}
 	}
 
@@ -222,10 +233,12 @@ func (can *canvas) setPixelIndex(pos image.Point, colorIndex uint8) error {
 
 // Will update the canvas with the given image.
 // Only chunks that are fully inside the image will be updated.
-// Missing chunks will be created.
-func (can *canvas) setImage(img image.Image) error {
+//
+// This will validate the chunks, reset their download flag and replay any pixel events while that download happened.
+// createIfNonexistent should be set to false normally.
+func (can *canvas) setImage(img image.Image, createIfNonexistent bool) error {
 	chunkRect := can.ChunkSize.getInnerChunkRect(img.Bounds())
-	chunks, err := can.getChunks(chunkRect, true, false)
+	chunks, err := can.getChunks(chunkRect, createIfNonexistent, false)
 	if err != nil {
 		return fmt.Errorf("Could not draw image at %v: %v", img.Bounds(), err)
 	}
@@ -265,9 +278,9 @@ func (can *canvas) getImageCopy(rect image.Rectangle) (*image.Paletted, error) {
 }
 
 // Invalidates all chunks the rectangle intersects with.
-// This will create new chunks if needed.
+// This will only affect existing chunks.
 //
-// This should be used to signal the redownloading of a specific area or chunk
+// This should be used to signal connection loss or something that caused specific chunks to go out of sync.
 func (can *canvas) invalidateRect(rect image.Rectangle) error {
 	// Forward event to broadcaster goroutine
 	can.EventChan <- canvasEventInvalidateRect{
@@ -275,7 +288,7 @@ func (can *canvas) invalidateRect(rect image.Rectangle) error {
 	}
 
 	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
-	chunks, err := can.getChunks(chunkRect, true, true)
+	chunks, err := can.getChunks(chunkRect, false, true)
 	if err != nil {
 		return fmt.Errorf("Could not invalidate rectangle %v: %v", rect, err)
 	}
@@ -290,7 +303,7 @@ func (can *canvas) invalidateRect(rect image.Rectangle) error {
 // Invalidates all chunks.
 // This will only affect existing chunks.
 //
-// That should be used to signal connection loss or the redownloading of everything
+// This should be used to signal connection loss.
 func (can *canvas) invalidateAll() error {
 	can.RLock()
 	defer can.RUnlock()
@@ -300,6 +313,34 @@ func (can *canvas) invalidateAll() error {
 
 	for _, chunk := range can.Chunks {
 		chunk.invalidateImage()
+	}
+
+	return nil
+}
+
+// Signals that the specified rect is being downloaded.
+// This will create new chunks if needed.
+//
+// This should be used to signal that the download for a specific area has started.
+// A chunk that is in the downloading state will queue all pixel events, and will replay them after the download has finished.
+// By replaying the pixels, the chunk will always be in sync with the game, even if downloading takes a while.
+//
+// For some game APIs it may not be necessary, as they send data serially.
+// But signalDownload() must always be used, because otherwise the canvas would retrigger the download several times in a row on an invalid chunk.
+func (can *canvas) signalDownload(rect image.Rectangle) error {
+	// Forward event to broadcaster goroutine
+	can.EventChan <- canvasEventSignalDownload{
+		Rect: rect,
+	}
+
+	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+	chunks, err := can.getChunks(chunkRect, true, true)
+	if err != nil {
+		return fmt.Errorf("Could not signal download in rectangle %v: %v", rect, err)
+	}
+
+	for _, chunk := range chunks {
+		chunk.signalDownload()
 	}
 
 	return nil

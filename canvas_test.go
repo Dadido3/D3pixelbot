@@ -33,8 +33,8 @@ func Test_newCanvas(t *testing.T) {
 
 	for i := 0; i < 128; i++ {
 		rect := image.Rectangle{image.Point{i * 64, i * 64}, image.Point{i*64 + 64, i*64 + 64}}
-		if err := can.invalidateRect(rect); err != nil {
-			t.Errorf("Can't invalidate rectangle %v: %v", rect, err)
+		if err := can.signalDownload(rect); err != nil {
+			t.Errorf("Can't signal download at rectangle %v: %v", rect, err)
 		}
 	}
 
@@ -47,7 +47,7 @@ func Test_newCanvas(t *testing.T) {
 
 	for i := 0; i < 128; i++ {
 		rect := image.Rectangle{image.Point{i * 64, i * 64}, image.Point{i*64 + 64, i*64 + 64}}
-		if err := can.setImage(rect); err != nil {
+		if err := can.setImage(rect, false); err != nil {
 			t.Errorf("Can't set image at %v: %v", rect, err)
 		}
 	}
