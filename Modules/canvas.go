@@ -1,6 +1,5 @@
 package main
 
-// TODO: Write changes to disk
 // TODO: Logic to unload not needed chunks after time
 
 import (
@@ -30,10 +29,10 @@ type canvasEventSetImage struct {
 // TODO: Add more events: revalidate (when just a few pixels have changed after redownloading/validating a chunk)
 
 type canvasListener interface {
-	handleSetPixel(pos image.Point, colorInde uint8)
-	handleInvalidateRect(rect image.Rectangle)
-	handleInvalidateAll()
-	handleSetImage(img *image.Paletted)
+	handleSetPixel(pos image.Point, colorInde uint8) error
+	handleInvalidateRect(rect image.Rectangle) error
+	handleInvalidateAll() error
+	handleSetImage(img *image.Paletted) error
 
 	// TODO: Add listening rectangles, outgoing channel and more in here
 	// TODO: Add a way so listeners can define a list of chunks or rects the canvas (the game client finally) has to keep valid
@@ -47,9 +46,9 @@ type canvas struct {
 	ChunkSize pixelSize
 	Palette   color.Palette
 
-	EventChan     chan interface{}  // Forwards incoming changes to the broadcaster goroutine
-	GoroutineQuit chan struct{}     // Closing this channel stops the goroutines
-	Listeners     []*canvasListener // Events get forwarded to these listeners
+	EventChan     chan interface{}        // Forwards incoming changes to the broadcaster goroutine
+	GoroutineQuit chan struct{}           // Closing this channel stops the goroutines
+	Listeners     map[canvasListener]bool // Events get forwarded to these listeners
 }
 
 func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
@@ -59,7 +58,7 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 		Palette:       palette,
 		EventChan:     make(chan interface{}), // TODO: Determine optimal chan size
 		GoroutineQuit: make(chan struct{}),
-		Listeners:     []*canvasListener{},
+		Listeners:     make(map[canvasListener]bool),
 	}
 
 	// Goroutine that handles event broadcasting to listeners, and writes events to disk.
@@ -69,8 +68,21 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 			case event := <-can.EventChan:
 				switch event := event.(type) {
 				case canvasEventSetPixel:
-					log.Printf("Received pixel event at %v with colorIndex %v\n", event.Pos, event.ColorIndex)
-					// TODO: Broadcast and write to disk
+					for listener := range can.Listeners {
+						listener.handleSetPixel(event.Pos, event.ColorIndex)
+					}
+				case canvasEventSetImage:
+					for listener := range can.Listeners {
+						listener.handleSetImage(event.Image)
+					}
+				case canvasEventInvalidateRect:
+					for listener := range can.Listeners {
+						listener.handleInvalidateRect(event.Rect)
+					}
+				case canvasEventInvalidateAll:
+					for listener := range can.Listeners {
+						listener.handleInvalidateAll()
+					}
 				default:
 					log.Fatalf("Unknown event occured: %T", event)
 				}
@@ -81,6 +93,20 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 	}()
 
 	return can
+}
+
+func (can *canvas) subscribeListener(l canvasListener) {
+	can.Lock()
+	defer can.Unlock()
+
+	can.Listeners[l] = true
+}
+
+func (can *canvas) unsubscribeListener(l canvasListener) {
+	can.Lock()
+	defer can.Unlock()
+
+	delete(can.Listeners, l)
 }
 
 func (can *canvas) getChunk(coord chunkCoordinate, createIfNonexistent bool) (*chunk, error) {
@@ -216,7 +242,7 @@ func (can *canvas) getImageCopy(rect image.Rectangle) (*image.Paletted, error) {
 	img := image.NewPaletted(rect, can.Palette)
 
 	for _, chunk := range chunks {
-		draw.Draw(img, rect, chunk.getImageCopy(), rect.Min, draw.Over) // TODO: Check if the sp parameter is correct
+		draw.Draw(img, rect, chunk.getImageCopy(), rect.Min, draw.Over)
 	}
 
 	return img, nil

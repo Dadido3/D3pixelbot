@@ -70,6 +70,8 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 		return fmt.Errorf("Position is outside of the chunk")
 	}
 
+	// TODO: Check if colorIndex is valid
+
 	if chu.Valid {
 		chu.Image.SetColorIndex(pos.X, pos.Y, colorIndex)
 		return nil
@@ -98,7 +100,7 @@ func (chu *chunk) setImage(img image.Image) (*image.Paletted, error) {
 		return nil, fmt.Errorf("The image doesn't fill the chunk completely")
 	}
 
-	draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over) // TODO: Check if the sp parameter is correct
+	draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over)
 
 	// Replay all the queued pixels
 	for _, pqe := range chu.PixelQueue {

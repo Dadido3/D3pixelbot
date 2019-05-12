@@ -27,7 +27,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	re := regexp.MustCompile("[^a-zA-Z0-9\\-\\.]+")
 	name = re.ReplaceAllString(name, "_")
 
-	fileName := time.Now().Format("2006-01-02T150405Z0700") + ".pixrec" // Use RFC3339 like encoding, but with : removed
+	fileName := time.Now().UTC().Format("2006-01-02T150405") + ".pixrec" // Use RFC3339 like encoding, but with : removed
 	fileDirectory := filepath.Join(".", "Recordings", name)
 	filePath := filepath.Join(fileDirectory, fileName)
 
@@ -82,7 +82,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 }
 
 func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) error {
-	if int(colorIndex) > len(cdw.Canvas.Palette) {
+	if int(colorIndex) >= len(cdw.Canvas.Palette) {
 		return fmt.Errorf("Index outside of palette")
 	}
 	r, g, b, _ := cdw.Canvas.Palette[colorIndex].RGBA()
@@ -143,7 +143,7 @@ func (cdw *canvasDiskWriter) handleInvalidateAll() error {
 func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 	bounds := img.Bounds()
 	imgRGBA := image.NewRGBA(bounds)
-	draw.Draw(imgRGBA, bounds, img, bounds.Min, draw.Over) // TODO: Check if the sp parameter is correct
+	draw.Draw(imgRGBA, bounds, img, bounds.Min, draw.Over)
 	arrayRGBA := imgRGBA.Pix
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
