@@ -10,8 +10,10 @@
         "coord",
         "fingerprintjs",
         "keyframes",
+        "pixelbot",
         "pixelcanvasio",
         "recaptcha",
+        "rect",
         "timelapses"
     ]
 }

@@ -111,7 +111,7 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 }
 
 // Overwrites the image data, validates the chunk and resets the downloading flag.
-// The chunk boundaries needs to be inside the image boundaries, otherwise the operation will fail.
+// The chunk boundaries need to be inside the image boundaries, otherwise the operation will fail.
 //
 // All queued pixels will be replayed when this function is called.
 // This helps to prevent inconsistencies while downloading chunks.
@@ -184,13 +184,14 @@ type chunkQueryResult int
 const (
 	chunkKeep chunkQueryResult = iota
 	chunkDownload
+	chunkCompress // TODO: Compress chunk after some time
 	chunkDelete
 )
 
 // Query a chunk and reset its timer.
 // The result suggests whether a chunk should be downloaded, kept or deleted.
 // The canvas handles the result.
-func (chu *chunk) getQueryState() chunkQueryResult {
+func (chu *chunk) getQueryState(resetTime bool) chunkQueryResult {
 	chu.Lock()
 	defer chu.Unlock()
 
@@ -202,7 +203,7 @@ func (chu *chunk) getQueryState() chunkQueryResult {
 	}
 
 	// Only set the time when the chunk is valid and not downloading. So it will be deleted after time if it is "stuck"
-	if chu.Valid && !chu.Downloading {
+	if chu.Valid && !chu.Downloading && resetTime {
 		chu.LastQueryTime = time.Now()
 	}
 
