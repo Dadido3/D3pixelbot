@@ -16,8 +16,6 @@
 
 package main
 
-// TODO: Logic to unload not needed chunks after time
-
 import (
 	"fmt"
 	"image"
@@ -25,6 +23,7 @@ import (
 	"image/draw"
 	"log"
 	"sync"
+	"time"
 )
 
 type canvasEventInvalidateAll struct{}
@@ -68,6 +67,7 @@ type canvas struct {
 	Palette   color.Palette
 
 	EventChan     chan interface{}        // Forwards incoming changes to the broadcaster goroutine
+	RectChan      chan image.Rectangle    // Receives rectangles from listeners
 	GoroutineQuit chan struct{}           // Closing this channel stops the goroutines
 	Listeners     map[canvasListener]bool // Events get forwarded to these listeners
 }
@@ -78,15 +78,29 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 		ChunkSize:     chunkSize,
 		Palette:       palette,
 		EventChan:     make(chan interface{}), // TODO: Determine optimal chan size
+		RectChan:      make(chan image.Rectangle),
 		GoroutineQuit: make(chan struct{}),
 		Listeners:     make(map[canvasListener]bool),
 	}
 
-	// Goroutine that handles event broadcasting to listeners, and writes events to disk.
+	handleChunk := func(chunk *chunk, resetTime bool) {
+		switch chunk.getQueryState(resetTime) {
+		case chunkDelete:
+			delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min))
+		case chunkDownload:
+			// TODO: Request chunk download
+		}
+	}
+
+	// Goroutine that handles event broadcasting to listeners, download requests, and chunk handling.
 	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case event := <-can.EventChan:
+				can.RLock()
 				switch event := event.(type) {
 				case canvasEventSetPixel:
 					for listener := range can.Listeners {
@@ -111,6 +125,23 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 				default:
 					log.Fatalf("Unknown event occurred: %T", event)
 				}
+				can.RUnlock()
+			case rect := <-can.RectChan: // Get rect, and query all its chunks
+				chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+				chunks, err := can.getChunks(chunkRect, true, true)
+				can.Lock()
+				if err == nil {
+					for _, chunk := range chunks {
+						handleChunk(chunk, true)
+					}
+				}
+				can.Unlock()
+			case <-ticker.C:
+				can.Lock()
+				for _, chunk := range can.Chunks {
+					handleChunk(chunk, false) // Handle chunks, but don't reset their timer
+				}
+				can.Unlock()
 			case <-can.GoroutineQuit:
 				return
 			}
@@ -350,7 +381,7 @@ func (can *canvas) Close() {
 	// Stop goroutines gracefully
 	close(can.GoroutineQuit)
 
-	// TODO: Wait until goroutines are stopped
+	close(can.RectChan)
 
 	return
 }

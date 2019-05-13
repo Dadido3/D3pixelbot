@@ -24,6 +24,7 @@ import (
 	"image/color"
 	"log"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -62,6 +63,8 @@ type connectionPixelcanvasio struct {
 	Canvas *canvas
 
 	GoroutineQuit chan struct{} // Closing this channel stops the goroutines
+	QuitWaitgroup sync.WaitGroup
+	// TODO: Rect channel that receives download requests
 }
 
 func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
@@ -74,10 +77,11 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 		con.Canvas = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
 	}
 
-	// TODO: Get needed chunks from canvas, and query them in a goroutine
-
 	// Main goroutine that handles queries and timed things
-	go func(con *connectionPixelcanvasio) {
+	con.QuitWaitgroup.Add(1)
+	go func() {
+		defer con.QuitWaitgroup.Done()
+
 		queryTicker := time.NewTicker(10 * time.Second)
 		defer queryTicker.Stop()
 
@@ -96,14 +100,18 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 			select {
 			case <-queryTicker.C:
 				getOnlinePlayers()
+			// TODO: Handle incoming download requests here
 			case <-con.GoroutineQuit:
 				return
 			}
 		}
-	}(con)
+	}()
 
 	// Main goroutine that handles the websocket connection (It will always try to reconnect)
-	go func(con *connectionPixelcanvasio) {
+	con.QuitWaitgroup.Add(1)
+	go func() {
+		defer con.QuitWaitgroup.Done()
+
 		waitTime := 0 * time.Second
 		for {
 			select {
@@ -165,6 +173,8 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 							ox := int((mixed >> 4) & 0x3F)
 							oy := int((mixed >> 10) & 0x3F)
 							log.Printf("Pixelchange: color %v @ chunk %v, %v with offset %v, %v", colorIndex, cx, cy, ox, oy)
+							// TODO: Forward events to canvas
+							// TODO: Forward invalidate all on connection loss
 						}
 					default:
 						log.Printf("Unknown websocket opcode: %v", opcode)
@@ -175,7 +185,7 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 			close(quitChannel)
 
 		}
-	}(con)
+	}()
 
 	//fmt.Print(con.authenticateMe())
 
@@ -244,7 +254,7 @@ func (con *connectionPixelcanvasio) Close() {
 	// Stop goroutines gracefully
 	close(con.GoroutineQuit)
 
-	// TODO: Wait until goroutines are stopped
+	con.QuitWaitgroup.Wait()
 
 	return
 }

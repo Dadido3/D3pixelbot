@@ -29,15 +29,21 @@ import (
 )
 
 type canvasDiskWriter struct {
-	Canvas *canvas
+	Canvas     *canvas
+	Rectangles []image.Rectangle      // A list of canvas areas, that should be kept up to date automatically
+	RectsChan  chan []image.Rectangle // Moves the list of rectangles to the goroutine internally
 
 	File      *os.File
 	ZipWriter *gzip.Writer
+
+	GoroutineQuit chan struct{} // Closing this channel stops the goroutines
 }
 
 func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	cdw := &canvasDiskWriter{
-		Canvas: can,
+		Canvas:        can,
+		RectsChan:     make(chan []image.Rectangle),
+		GoroutineQuit: make(chan struct{}),
 	}
 
 	re := regexp.MustCompile("[^a-zA-Z0-9\\-\\.]+")
@@ -94,7 +100,35 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	}
 	// TODO: Handle errors in the palette writer
 
+	can.subscribeListener(cdw)
+
+	// Goroutine that queries rectangles
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				for _, rect := range cdw.Rectangles {
+					can.RectChan <- rect
+				}
+			case rects := <-cdw.RectsChan:
+				cdw.Rectangles = rects
+				for _, rect := range cdw.Rectangles {
+					can.RectChan <- rect
+				}
+			case <-can.GoroutineQuit:
+				return
+			}
+		}
+	}()
+
 	return cdw, nil
+}
+
+func (cdw *canvasDiskWriter) setListeningRects(rects []image.Rectangle) {
+	cdw.RectsChan <- rects
 }
 
 func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) error {
@@ -207,6 +241,10 @@ func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 }
 
 func (cdw *canvasDiskWriter) Close() {
+	cdw.Canvas.unsubscribeListener(cdw)
+
+	close(cdw.GoroutineQuit)
+
 	cdw.handleInvalidateAll()
 	cdw.ZipWriter.Close()
 	cdw.File.Close()
