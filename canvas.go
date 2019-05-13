@@ -14,6 +14,8 @@
     You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+// TODO: Prevent any more actions after Close() has been called
+
 package main
 
 import (
@@ -45,6 +47,10 @@ type canvasEventSignalDownload struct {
 	Rect image.Rectangle
 }
 
+type canvasEventRequestRect struct {
+	Rect image.Rectangle
+}
+
 // TODO: Add more events: revalidate (when just a few pixels have changed after redownloading/validating a chunk)
 
 type canvasListener interface {
@@ -53,9 +59,6 @@ type canvasListener interface {
 	handleSetImage(img *image.Paletted) error
 	handleSetPixel(pos image.Point, colorIndex uint8) error
 	handleSignalDownload(rect image.Rectangle) error
-
-	// TODO: Add listening rectangles, outgoing channel and more in here
-	// TODO: Add a way so listeners can define a list of chunks or rectangles the canvas (the game client finally) has to keep valid
 }
 
 type canvas struct {
@@ -66,21 +69,19 @@ type canvas struct {
 	ChunkSize pixelSize
 	Palette   color.Palette
 
-	EventChan     chan interface{}        // Forwards incoming changes to the broadcaster goroutine
-	RectChan      chan image.Rectangle    // Receives rectangles from listeners
-	GoroutineQuit chan struct{}           // Closing this channel stops the goroutines
-	Listeners     map[canvasListener]bool // Events get forwarded to these listeners
+	EventChan        chan interface{}        // Forwards incoming events to the goroutine
+	ChunkRequestChan chan *chunk             // Requests the game connection to download chunks
+	Listeners        map[canvasListener]bool // Events get forwarded to these listeners
 }
 
-func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
+func newCanvas(chunkSize pixelSize, palette color.Palette) (*canvas, <-chan *chunk) {
 	can := &canvas{
-		Chunks:        make(map[chunkCoordinate]*chunk, 0),
-		ChunkSize:     chunkSize,
-		Palette:       palette,
-		EventChan:     make(chan interface{}), // TODO: Determine optimal chan size
-		RectChan:      make(chan image.Rectangle),
-		GoroutineQuit: make(chan struct{}),
-		Listeners:     make(map[canvasListener]bool),
+		Chunks:           make(map[chunkCoordinate]*chunk, 0),
+		ChunkSize:        chunkSize,
+		Palette:          palette,
+		EventChan:        make(chan interface{}), // TODO: Determine optimal chan size
+		ChunkRequestChan: make(chan *chunk),
+		Listeners:        make(map[canvasListener]bool),
 	}
 
 	handleChunk := func(chunk *chunk, resetTime bool) {
@@ -88,7 +89,7 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 		case chunkDelete:
 			delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min))
 		case chunkDownload:
-			// TODO: Request chunk download
+			can.ChunkRequestChan <- chunk
 		}
 	}
 
@@ -99,56 +100,66 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) *canvas {
 
 		for {
 			select {
-			case event := <-can.EventChan:
-				can.RLock()
+			case event, ok := <-can.EventChan:
+				if !ok {
+					// Close goroutine, as the channel is gone
+					return
+				}
 				switch event := event.(type) {
 				case canvasEventSetPixel:
+					can.RLock()
 					for listener := range can.Listeners {
 						listener.handleSetPixel(event.Pos, event.ColorIndex)
 					}
+					can.RUnlock()
 				case canvasEventSetImage:
+					can.RLock()
 					for listener := range can.Listeners {
 						listener.handleSetImage(event.Image)
 					}
+					can.RUnlock()
 				case canvasEventInvalidateRect:
+					can.RLock()
 					for listener := range can.Listeners {
 						listener.handleInvalidateRect(event.Rect)
 					}
+					can.RUnlock()
 				case canvasEventInvalidateAll:
+					can.RLock()
 					for listener := range can.Listeners {
 						listener.handleInvalidateAll()
 					}
+					can.RUnlock()
 				case canvasEventSignalDownload:
+					can.RLock()
 					for listener := range can.Listeners {
 						listener.handleSignalDownload(event.Rect)
 					}
+					can.RUnlock()
+				case canvasEventRequestRect:
+					chunkRect := can.ChunkSize.getOuterChunkRect(event.Rect)
+					chunks, err := can.getChunks(chunkRect, true, true)
+					can.Lock()
+					if err == nil {
+						for _, chunk := range chunks {
+							handleChunk(chunk, true)
+						}
+					}
+					can.Unlock()
 				default:
 					log.Fatalf("Unknown event occurred: %T", event)
 				}
-				can.RUnlock()
-			case rect := <-can.RectChan: // Get rect, and query all its chunks
-				chunkRect := can.ChunkSize.getOuterChunkRect(rect)
-				chunks, err := can.getChunks(chunkRect, true, true)
-				can.Lock()
-				if err == nil {
-					for _, chunk := range chunks {
-						handleChunk(chunk, true)
-					}
-				}
-				can.Unlock()
-			case <-ticker.C:
+			case <-ticker.C: // Query all chunks for state changes each minute
 				can.Lock()
 				for _, chunk := range can.Chunks {
 					handleChunk(chunk, false) // Handle chunks, but don't reset their timer
 				}
 				can.Unlock()
-			case <-can.GoroutineQuit:
-				return
 			}
 		}
 	}()
 
-	return can
+	return can, can.ChunkRequestChan
 }
 
 func (can *canvas) subscribeListener(l canvasListener) {
@@ -163,6 +174,13 @@ func (can *canvas) unsubscribeListener(l canvasListener) {
 	defer can.Unlock()
 
 	delete(can.Listeners, l)
+}
+
+func (can *canvas) queryRect(rect image.Rectangle) {
+	// Forward event to goroutine
+	can.EventChan <- canvasEventRequestRect{ // TODO: Don't write to channel after Close() has been called
+		Rect: rect,
+	}
 }
 
 func (can *canvas) getChunk(coord chunkCoordinate, createIfNonexistent bool) (*chunk, error) {
@@ -378,10 +396,7 @@ func (can *canvas) signalDownload(rect image.Rectangle) error {
 }
 
 func (can *canvas) Close() {
-	// Stop goroutines gracefully
-	close(can.GoroutineQuit)
-
-	close(can.RectChan)
+	close(can.EventChan) // This will stop the goroutine after all events are processed
 
 	return
 }

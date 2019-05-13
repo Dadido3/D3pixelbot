@@ -62,9 +62,9 @@ type connectionPixelcanvasio struct {
 
 	Canvas *canvas
 
-	GoroutineQuit chan struct{} // Closing this channel stops the goroutines
-	QuitWaitgroup sync.WaitGroup
-	// TODO: Rect channel that receives download requests
+	GoroutineQuit     chan struct{} // Closing this channel stops the goroutines
+	QuitWaitgroup     sync.WaitGroup
+	ChunkDownloadChan <-chan *chunk // Receives download requests from the canvas
 }
 
 func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
@@ -74,7 +74,7 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 	}
 
 	if createCanvas {
-		con.Canvas = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
+		con.Canvas, con.ChunkDownloadChan = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
 	}
 
 	// Main goroutine that handles queries and timed things
@@ -96,11 +96,20 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 		}
 		getOnlinePlayers()
 
+		handleDownload := func(chu *chunk) {
+			// TODO: Set download flag for the chunks and download chunk data.
+			// Also, if a chunk is already valid, don't set the downloading flag or overwrite it!
+		}
+
 		for {
 			select {
 			case <-queryTicker.C:
 				getOnlinePlayers()
-			// TODO: Handle incoming download requests here
+			case chu := <-con.ChunkDownloadChan:
+				// Check if the chunk still needs to be downloaded
+				if chu.getQueryState(false) == chunkDownload {
+					handleDownload(chu)
+				}
 			case <-con.GoroutineQuit:
 				return
 			}

@@ -22,7 +22,7 @@ import (
 )
 
 func Test_canvas_newCanvasDiskWriter(t *testing.T) {
-	can := newCanvas(pixelSize{64, 64}, pixelcanvasioPalette)
+	can, _ := newCanvas(pixelSize{64, 64}, pixelcanvasioPalette)
 
 	cdw, err := can.newCanvasDiskWriter("Test")
 	if err != nil {

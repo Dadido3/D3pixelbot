@@ -14,6 +14,8 @@
     You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+// TODO: Prevent any more actions after Close() has been called
+
 package main
 
 import (
@@ -35,15 +37,12 @@ type canvasDiskWriter struct {
 
 	File      *os.File
 	ZipWriter *gzip.Writer
-
-	GoroutineQuit chan struct{} // Closing this channel stops the goroutines
 }
 
 func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	cdw := &canvasDiskWriter{
-		Canvas:        can,
-		RectsChan:     make(chan []image.Rectangle),
-		GoroutineQuit: make(chan struct{}),
+		Canvas:    can,
+		RectsChan: make(chan []image.Rectangle),
 	}
 
 	re := regexp.MustCompile("[^a-zA-Z0-9\\-\\.]+")
@@ -111,15 +110,17 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 			select {
 			case <-ticker.C:
 				for _, rect := range cdw.Rectangles {
-					can.RectChan <- rect
+					can.queryRect(rect)
 				}
-			case rects := <-cdw.RectsChan:
+			case rects, ok := <-cdw.RectsChan:
+				if !ok {
+					// Close goroutine, as the channel is gone
+					return
+				}
 				cdw.Rectangles = rects
 				for _, rect := range cdw.Rectangles {
-					can.RectChan <- rect
+					can.queryRect(rect)
 				}
-			case <-can.GoroutineQuit:
-				return
 			}
 		}
 	}()
@@ -128,7 +129,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 }
 
 func (cdw *canvasDiskWriter) setListeningRects(rects []image.Rectangle) {
-	cdw.RectsChan <- rects
+	cdw.RectsChan <- rects // TODO: Don't write to channel after Close() has been called
 }
 
 func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) error {
@@ -243,7 +244,7 @@ func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 func (cdw *canvasDiskWriter) Close() {
 	cdw.Canvas.unsubscribeListener(cdw)
 
-	close(cdw.GoroutineQuit)
+	close(cdw.RectsChan) // This will stop the goroutine after all events are processed
 
 	cdw.handleInvalidateAll()
 	cdw.ZipWriter.Close()

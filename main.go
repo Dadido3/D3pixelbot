@@ -14,6 +14,8 @@
     You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+// TODO: Change channels to be handled and closed by the sending side, to prevent write access to already closed channels.
+
 package main
 
 import (
@@ -29,7 +31,7 @@ func main() {
 	//	log.Fatal(err)
 	//}
 
-	canvas := newCanvas(pixelSize{64, 64}, pixelcanvasioPalette)
+	canvas, _ := newCanvas(pixelSize{64, 64}, pixelcanvasioPalette)
 	log.Println(canvas.getChunk(chunkCoordinate{0, 0}, false))
 
 	buf := bufio.NewReader(os.Stdin)

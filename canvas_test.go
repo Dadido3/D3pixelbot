@@ -21,6 +21,6 @@ import (
 )
 
 func Test_newCanvas(t *testing.T) {
-	can := newCanvas(pixelSize{64, 64}, pixelcanvasioPalette)
+	can, _ := newCanvas(pixelSize{64, 64}, pixelcanvasioPalette)
 	defer can.Close()
 }
