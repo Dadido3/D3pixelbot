@@ -89,18 +89,28 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 
 - Download chunk collection (15x15 chunks):
 
-  - URL: `https://pixelcanvas.io/api/bigchunk/<ccx>.<ccy>.bmp`  
-    With `ccx` and `ccy` being the offset of the chunk collection.
+  - URL: `https://pixelcanvas.io/api/bigchunk/ccx.ccy.bmp`  
+    With `ccx` and `ccy` being the offset of the chunk collection.  
     Example: `https://pixelcanvas.io/api/bigchunk/-10.5.bmp`  
-    Make sure you disable the any caching for this request.
+    Make sure to disable any caching for this request.
 
-  - Result: raw image data, 4 bit per pixel:
+  - Result: Raw image data, 4 bit per pixel:
 
-    Buffer offset: (Has to be divided by 2 for higher and lower nibble)
+    The center chunk coordinate (sent in the request) is in the center of the returned chunk array.
+
+    Buffer offset: (Has to be divided by 2 for higher and lower nibble. `jy` starts at the top of the chunk)
 
     ``` PureBasic
     Offset = jx + jy * #Chunk_Size + (ix + iy * (#Chunk_Collection_Radius*2+1)) * #Chunk_Size * #Chunk_Size
     ```
+
+    The memory ranges of each chunk of the returned chunk array:
+    |     |   0 |   1 |   2 |   3 |   4 |   5 |   6 |   7 |   8 |   9 |  10 |  11 |  12 |  13 |  14 |
+    | ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
+    |   0 | [0;2048) | [2048;4096) | ... |||||||||||| [28672;30720)
+    |   1 | [30720;32768) | [32768;34816) | ...
+    |   2 | ... | ... | ...
+    |  14 | [430080;432128) | ... | ... |||||||||||| [458752;460800)
 
     Chunk coordinates inside the chunk collection:
 
@@ -109,12 +119,22 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
     CY = CCY * (#Chunk_Collection_Radius*2+1) + iy - #Chunk_Collection_Radius
     ```
 
+    With `#Chunk_Collection_Radius = 7`.
+
     `jx` and `jy` being the pixel-offset inside a chunk, and `ix` and `iy` being the chunk-offset inside a chunk collection.
     These counter variables must be greater or equal 0.
     `jx` and `jy` count from 0 to 63.
     `ix` and `iy` count from 0 to 14.
     Coordinate axis directions are pointing to the right and downwards.
     Even offsets are stored in the higher nibble.
+
+  - Error: JSON Object:
+
+    | Key | Type | Description | Example |
+    | --- | ---- | ----------- | ------- |
+    | error            | string | `"FUCK YOU "`
+
+    In case of `"FUCK YOU "`, you are probably querying a coordinate that isn't multiple of 15.
 
 - Get online player number:
 

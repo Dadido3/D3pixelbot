@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"image/color"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -76,4 +77,20 @@ func divideCeil(a, b int) int {
 	}
 
 	return temp
+}
+
+func isPaletteEqual(pal1, pal2 color.Palette) bool {
+	if len(pal1) != len(pal2) {
+		return false
+	}
+
+	for k, col := range pal1 {
+		r1, g1, b1, a1 := col.RGBA()
+		r2, g2, b2, a2 := pal2[k].RGBA()
+		if r1 != r2 || g1 != g2 || b1 != b2 || a1 != a2 {
+			return false
+		}
+	}
+
+	return true
 }

@@ -112,6 +112,7 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 
 // Overwrites the image data, validates the chunk and resets the downloading flag.
 // The chunk boundaries need to be inside the image boundaries, otherwise the operation will fail.
+// Also, the download flag has to be set prior by using signalDownload().
 //
 // All queued pixels will be replayed when this function is called.
 // This helps to prevent inconsistencies while downloading chunks.
@@ -123,8 +124,21 @@ func (chu *chunk) setImage(img image.Image) (*image.Paletted, error) {
 	if !chu.Rect.In(img.Bounds()) {
 		return nil, fmt.Errorf("The image doesn't fill the chunk completely")
 	}
+	if chu.Downloading == false {
+		return nil, fmt.Errorf("The download flag isn't set")
+	}
 
-	draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over)
+	if ip, ok := img.(*image.Paletted); ok && isPaletteEqual(ip.Palette, chu.Image.Palette) {
+		for iy := chu.Rect.Min.Y; iy < chu.Rect.Max.Y; iy++ {
+			for ix := chu.Rect.Min.X; ix < chu.Rect.Max.X; ix++ {
+				offset1 := chu.Image.PixOffset(ix, iy)
+				offset2 := ip.PixOffset(ix, iy)
+				chu.Image.Pix[offset1] = ip.Pix[offset2] // TODO: Improve palette image copying
+			}
+		}
+	} else {
+		draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over)
+	}
 
 	// Replay all the queued pixels
 	for _, pqe := range chu.PixelQueue {
@@ -167,16 +181,21 @@ func (chu *chunk) invalidateImage() {
 
 // Signals that the data for the chunk is being downloaded.
 // While a chunk is downloading, all setPixel() calls will be queued.
+// A valid chunk or a chunk that is already downloading will not be set, and it's returned whether or not it could be set.
 //
 // setImage() has to be used to signal the end of the download, and make the chunk valid (in sync with the game).
-func (chu *chunk) signalDownload() {
+func (chu *chunk) signalDownload() bool {
 	chu.Lock()
 	defer chu.Unlock()
+
+	if chu.Valid || chu.Downloading {
+		return false
+	}
 
 	chu.PixelQueue = []pixelQueueElement{} // Empty queue on new download.
 	chu.Downloading = true
 
-	return
+	return true
 }
 
 type chunkQueryResult int
@@ -195,15 +214,15 @@ func (chu *chunk) getQueryState(resetTime bool) chunkQueryResult {
 	chu.Lock()
 	defer chu.Unlock()
 
-	if chu.LastQueryTime.Add(chunkDeleteTime).After(time.Now()) {
+	if chu.LastQueryTime.Add(chunkDeleteTime).Before(time.Now()) {
 		return chunkDelete
 	}
 	if !chu.Valid && !chu.Downloading {
 		return chunkDownload
 	}
 
-	// Only set the time when the chunk is valid and not downloading. So it will be deleted after time if it is "stuck"
-	if chu.Valid && !chu.Downloading && resetTime {
+	// Only set the time when the chunk is not downloading. So it will be deleted after some time if it is "stuck"
+	if !chu.Downloading && resetTime {
 		chu.LastQueryTime = time.Now()
 	}
 

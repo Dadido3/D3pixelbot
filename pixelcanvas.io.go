@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"net/url"
 	"sync"
 	"sync/atomic"
@@ -32,7 +34,8 @@ import (
 )
 
 var pixelcanvasioChunkSize = pixelSize{64, 64}
-var pixelcanvasioChunkCollectionSize = chunkSize{15, 15} // Arraysize of chunks that's returned on the bigchunk request
+var pixelcanvasioChunkCollectionRadius = 7
+var pixelcanvasioChunkCollectionSize = chunkSize{pixelcanvasioChunkCollectionRadius*2 + 1, pixelcanvasioChunkCollectionRadius*2 + 1} // Arraysize of chunks that's returned on the bigchunk request
 
 var pixelcanvasioPalette = []color.Color{
 	color.RGBA{255, 255, 255, 255},
@@ -67,7 +70,7 @@ type connectionPixelcanvasio struct {
 	ChunkDownloadChan <-chan *chunk // Receives download requests from the canvas
 }
 
-func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
+func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, *canvas, error) {
 	con := &connectionPixelcanvasio{
 		Fingerprint:   "11111111111111111111111111111111",
 		GoroutineQuit: make(chan struct{}),
@@ -96,109 +99,206 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, error) {
 		}
 		getOnlinePlayers()
 
-		handleDownload := func(chu *chunk) {
-			// TODO: Set download flag for the chunks and download chunk data.
-			// Also, if a chunk is already valid, don't set the downloading flag or overwrite it!
-		}
-
 		for {
 			select {
 			case <-queryTicker.C:
 				getOnlinePlayers()
-			case chu := <-con.ChunkDownloadChan:
-				// Check if the chunk still needs to be downloaded
-				if chu.getQueryState(false) == chunkDownload {
-					handleDownload(chu)
-				}
 			case <-con.GoroutineQuit:
 				return
 			}
 		}
 	}()
 
-	// Main goroutine that handles the websocket connection (It will always try to reconnect)
-	con.QuitWaitgroup.Add(1)
-	go func() {
-		defer con.QuitWaitgroup.Done()
+	if con.Canvas != nil { // Without canvas there will be no ws connection, and no chunk downloading
+		myClient := &http.Client{Timeout: 1 * time.Minute}
+		downloadWaitgroup := sync.WaitGroup{}
+		handleDownload := func(chu *chunk) error {
+			// Round to nearest bigchunk
+			ccOffset := image.Point(pixelcanvasioChunkSize).Mul(pixelcanvasioChunkCollectionRadius)
+			cc := pixelcanvasioChunkCollectionSize.getPixelSize(pixelcanvasioChunkSize).getChunkCoord(chu.Rect.Min.Add(ccOffset))
+			cc.X, cc.Y = cc.X*pixelcanvasioChunkCollectionSize.X, cc.Y*pixelcanvasioChunkCollectionSize.Y
+			ca := chunkRectangle{image.Rectangle{
+				Min: image.Point(cc).Add(image.Point{-pixelcanvasioChunkCollectionRadius, -pixelcanvasioChunkCollectionRadius}),
+				Max: image.Point(cc).Add(image.Point{pixelcanvasioChunkCollectionRadius + 1, pixelcanvasioChunkCollectionRadius + 1}),
+			}}.getPixelRectangle(pixelcanvasioChunkSize)
 
-		waitTime := 0 * time.Second
-		for {
-			select {
-			case <-con.GoroutineQuit:
-				return
-			case <-time.After(waitTime):
-			}
-
-			// Any following connection attempt should be delayed a few seconds
-			waitTime = 5 * time.Second
-
-			// Get websocket URL
-			u, err := con.getWebsocketURL()
+			_, err := con.Canvas.signalDownload(ca)
 			if err != nil {
-				log.Printf("Failed to connect to websocket server: %v", err)
-				continue
+				return fmt.Errorf("Can't signal downloading of chunks at %v: %v", cc, err)
 			}
 
-			u.RawQuery = "fingerprint=" + con.Fingerprint
+			downloadWaitgroup.Add(1)
+			go func() {
+				defer downloadWaitgroup.Done()
 
-			// Connect to websocket server
-			c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-			if err != nil {
-				log.Printf("Failed to connect to websocket server %v: %v", u.String(), err)
-				continue
-			}
+				r, err := myClient.Get(fmt.Sprintf("https://pixelcanvas.io/api/bigchunk/%v.%v.bmp", cc.X, cc.Y))
+				if err != nil {
+					log.Printf("Can't get bigchunk at %v: %v", cc, err)
+					return
+				}
+				defer r.Body.Close()
 
-			// Wait for and handle external close events, or connection errors.
-			quitChannel := make(chan struct{})
-			go func(c *websocket.Conn, quitChannel chan struct{}) {
+				raw, err := ioutil.ReadAll(r.Body)
+				if err != nil {
+					log.Printf("Error in bigchunk result: %v", err)
+					return
+				}
+				expectedLen := pixelcanvasioChunkSize.X * pixelcanvasioChunkSize.Y * ((pixelcanvasioChunkCollectionSize.X) * (pixelcanvasioChunkCollectionSize.Y)) / 2
+				if len(raw) != expectedLen {
+					log.Printf("Returned image data has the wrong length (%v, expected %v)", len(raw), expectedLen)
+					if len(raw) < 1000 {
+						log.Printf("API returned %v", string(raw))
+					}
+					return
+				}
+
+				img := image.NewPaletted(ca, pixelcanvasioPalette)
+				i := 0
+
+				for iy := 0; iy < pixelcanvasioChunkCollectionSize.Y; iy++ {
+					for ix := 0; ix < pixelcanvasioChunkCollectionSize.X; ix++ {
+						c := chunkCoordinate{
+							X: cc.X + ix - pixelcanvasioChunkCollectionRadius,
+							Y: cc.Y + iy - pixelcanvasioChunkCollectionRadius,
+						}
+						for jy := 0; jy < pixelcanvasioChunkSize.Y; jy++ {
+							for jx := 0; jx < pixelcanvasioChunkSize.X; jx += 2 {
+								p := image.Point{
+									X: c.X*pixelcanvasioChunkSize.X + jx,
+									Y: c.Y*pixelcanvasioChunkSize.Y + jy,
+								}
+
+								img.SetColorIndex(p.X, p.Y, (raw[i]>>4)&0x0F)
+								img.SetColorIndex(p.X+1, p.Y, raw[i]&0x0F)
+								i++
+							}
+						}
+					}
+				}
+
+				startTime := time.Now()
+
+				err = con.Canvas.setImage(img, false, true)
+				if err != nil {
+					log.Printf("Can't set image at %v: %v", img.Rect, err)
+					return
+				}
+
+				log.Printf("setImage() took %v", time.Now().Sub(startTime).Seconds())
+
+			}()
+
+			return nil
+		}
+
+		// Main goroutine that handles the websocket connection (It will always try to reconnect)
+		con.QuitWaitgroup.Add(1)
+		go func() {
+			defer con.QuitWaitgroup.Done()
+
+			waitTime := 0 * time.Second
+			for {
 				select {
 				case <-con.GoroutineQuit:
-					c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-					select {
-					case <-quitChannel:
-					case <-time.After(time.Second):
-					}
-				case <-quitChannel:
+					return
+				case <-time.After(waitTime):
 				}
-				c.Close()
-			}(c, quitChannel)
 
-			// Handle events
-			for {
-				_, message, err := c.ReadMessage()
+				// Any following connection attempt should be delayed a few seconds
+				waitTime = 5 * time.Second
+
+				// Get websocket URL
+				u, err := con.getWebsocketURL()
 				if err != nil {
-					log.Printf("Websocket connection error: %v", err)
-					break
+					log.Printf("Failed to connect to websocket server: %v", err)
+					continue
 				}
-				if len(message) >= 1 {
-					opcode := uint8(message[0])
-					switch opcode {
-					case 0xC1:
-						if len(message) == 7 {
-							cx := int16(binary.BigEndian.Uint16(message[1:]))
-							cy := int16(binary.BigEndian.Uint16(message[3:]))
-							mixed := binary.BigEndian.Uint16(message[5:])
-							colorIndex := int(mixed & 0x0F)
-							ox := int((mixed >> 4) & 0x3F)
-							oy := int((mixed >> 10) & 0x3F)
-							log.Printf("Pixelchange: color %v @ chunk %v, %v with offset %v, %v", colorIndex, cx, cy, ox, oy)
-							// TODO: Forward events to canvas
-							// TODO: Forward invalidate all on connection loss
+
+				u.RawQuery = "fingerprint=" + con.Fingerprint
+
+				// Connect to websocket server
+				c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+				if err != nil {
+					log.Printf("Failed to connect to websocket server %v: %v", u.String(), err)
+					continue
+				}
+
+				// Handle chunk downloading in a goroutine
+				chunkDownloaderQuit := make(chan struct{})
+				go func() {
+					for {
+						select {
+						case chu := <-con.ChunkDownloadChan: // TODO: Make it a buffered channel, to prevent blocking while ws is disconnected
+							// Check if the chunk still needs to be downloaded
+							if chu.getQueryState(false) == chunkDownload {
+								handleDownload(chu)
+							}
+						case <-chunkDownloaderQuit:
 						}
-					default:
-						log.Printf("Unknown websocket opcode: %v", opcode)
 					}
+				}()
 
+				// Wait for and handle external close events, or connection errors
+				quitChannel := make(chan struct{})
+				go func(c *websocket.Conn, quitChannel chan struct{}) {
+					select {
+					case <-con.GoroutineQuit:
+						c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+						select {
+						case <-quitChannel:
+						case <-time.After(time.Second):
+						}
+					case <-quitChannel:
+					}
+					c.Close()
+				}(c, quitChannel)
+
+				// Handle events
+				for {
+					_, message, err := c.ReadMessage()
+					if err != nil {
+						log.Printf("Websocket connection error: %v", err)
+						break
+					}
+					if len(message) >= 1 {
+						opcode := uint8(message[0])
+						switch opcode {
+						case 0xC1:
+							if len(message) == 7 {
+								cx := int16(binary.BigEndian.Uint16(message[1:]))
+								cy := int16(binary.BigEndian.Uint16(message[3:]))
+								mixed := binary.BigEndian.Uint16(message[5:])
+								colorIndex := uint8(mixed & 0x0F)
+								ox := int((mixed >> 4) & 0x3F)
+								oy := int((mixed >> 10) & 0x3F)
+								log.Printf("Pixelchange: color %v @ chunk %v, %v with offset %v, %v", colorIndex, cx, cy, ox, oy)
+								pos := image.Point{
+									X: int(cx)*pixelcanvasioChunkSize.X + ox,
+									Y: int(cy)*pixelcanvasioChunkSize.Y + oy,
+								}
+								if err := con.Canvas.setPixelIndex(pos, colorIndex); err != nil {
+									log.Printf("Couldn't draw pixel at %v with color %v: %v", pos, colorIndex, err)
+								}
+							}
+						default:
+							log.Printf("Unknown websocket opcode: %v", opcode)
+						}
+
+					}
 				}
-			}
-			close(quitChannel)
+				close(chunkDownloaderQuit)
+				close(quitChannel)
+				downloadWaitgroup.Wait() // Wait until all chunk downloads are finished
 
-		}
-	}()
+				con.Canvas.invalidateAll()
+
+			}
+		}()
+	}
 
 	//fmt.Print(con.authenticateMe())
 
-	return con, nil
+	return con, con.Canvas, nil
 }
 
 func (con *connectionPixelcanvasio) getOnlinePlayers() int {
@@ -260,10 +360,14 @@ func (con *connectionPixelcanvasio) authenticateMe() error {
 }
 
 func (con *connectionPixelcanvasio) Close() {
+
 	// Stop goroutines gracefully
 	close(con.GoroutineQuit)
 
+	log.Printf("Waiting for downloads to finish")
 	con.QuitWaitgroup.Wait()
+
+	con.Canvas.Close()
 
 	return
 }

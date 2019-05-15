@@ -24,13 +24,18 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 )
 
 type canvasDiskWriter struct {
+	Closed      bool
+	ClosedMutex sync.RWMutex
+
 	Canvas     *canvas
 	Rectangles []image.Rectangle      // A list of canvas areas, that should be kept up to date automatically
 	RectsChan  chan []image.Rectangle // Moves the list of rectangles to the goroutine internally
@@ -59,7 +64,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	}
 
 	cdw.File = f
-	zipWriter, err := gzip.NewWriterLevel(f, gzip.BestCompression)
+	zipWriter, err := gzip.NewWriterLevel(f, gzip.BestSpeed)
 	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("Can't initialize compression %v: %v", filePath, err)
@@ -110,7 +115,10 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 			select {
 			case <-ticker.C:
 				for _, rect := range cdw.Rectangles {
-					can.queryRect(rect)
+					err := can.queryRect(rect)
+					if err != nil {
+						log.Printf("Can't query rectangle %v: %v", rect, err)
+					}
 				}
 			case rects, ok := <-cdw.RectsChan:
 				if !ok {
@@ -119,7 +127,10 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 				}
 				cdw.Rectangles = rects
 				for _, rect := range cdw.Rectangles {
-					can.queryRect(rect)
+					err := can.queryRect(rect)
+					if err != nil {
+						log.Printf("Can't query rectangle %v: %v", rect, err)
+					}
 				}
 			}
 		}
@@ -128,11 +139,25 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	return cdw, nil
 }
 
-func (cdw *canvasDiskWriter) setListeningRects(rects []image.Rectangle) {
-	cdw.RectsChan <- rects // TODO: Don't write to channel after Close() has been called
+func (cdw *canvasDiskWriter) setListeningRects(rects []image.Rectangle) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
+	cdw.RectsChan <- rects
+
+	return nil
 }
 
 func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	if int(colorIndex) >= len(cdw.Canvas.Palette) {
 		return fmt.Errorf("Index outside of palette")
 	}
@@ -159,6 +184,12 @@ func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) e
 }
 
 func (cdw *canvasDiskWriter) handleInvalidateRect(rect image.Rectangle) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType               uint8
 		Time                   int64
@@ -178,6 +209,12 @@ func (cdw *canvasDiskWriter) handleInvalidateRect(rect image.Rectangle) error {
 }
 
 func (cdw *canvasDiskWriter) handleInvalidateAll() error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType uint8
 		Time     int64
@@ -192,6 +229,12 @@ func (cdw *canvasDiskWriter) handleInvalidateAll() error {
 }
 
 func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType               uint8
 		Time                   int64
@@ -211,6 +254,12 @@ func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle) error {
 }
 
 func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	bounds := img.Bounds()
 	imgRGBA := image.NewRGBA(bounds)
 	draw.Draw(imgRGBA, bounds, img, bounds.Min, draw.Over)
@@ -243,10 +292,14 @@ func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 
 func (cdw *canvasDiskWriter) Close() {
 	cdw.Canvas.unsubscribeListener(cdw)
+	cdw.handleInvalidateAll()
+
+	cdw.ClosedMutex.RLock()
+	cdw.Closed = true // Prevent any new events from happening
+	cdw.ClosedMutex.RUnlock()
 
 	close(cdw.RectsChan) // This will stop the goroutine after all events are processed
 
-	cdw.handleInvalidateAll()
 	cdw.ZipWriter.Close()
 	cdw.File.Close()
 }

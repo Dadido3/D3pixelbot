@@ -18,6 +18,8 @@ package main
 
 import "image"
 
+// TODO: Use better names than "chunkSize", ...
+
 type pixelSize image.Point // Size of something in pixels
 
 type (
@@ -81,4 +83,24 @@ func (ps pixelSize) getInnerChunkRect(rect image.Rectangle) chunkRectangle {
 		Min: min,
 		Max: max,
 	}}
+}
+
+// Converts a rectangle from chunk coordinates into pixel coordinates
+func (ps chunkRectangle) getPixelRectangle(chunkSize pixelSize) image.Rectangle {
+	rectTemp := ps.Canon()
+
+	rectTemp.Min.X *= chunkSize.X
+	rectTemp.Min.Y *= chunkSize.Y
+	rectTemp.Max.X *= chunkSize.X
+	rectTemp.Max.Y *= chunkSize.Y
+
+	return image.Rectangle(rectTemp)
+}
+
+// Converts a size in chunks into a size in pixels
+func (cs chunkSize) getPixelSize(chunkSize pixelSize) pixelSize {
+	return pixelSize{
+		X: cs.X * chunkSize.X,
+		Y: cs.Y * chunkSize.Y,
+	}
 }
