@@ -1,6 +1,7 @@
 {
     "go.formatTool": "goimports",
     "cSpell.words": [
+        "Lanczos",
         "Pixelcanvas",
         "Rects",
         "SITEKEY",
@@ -9,9 +10,11 @@
         "Vogel",
         "abool",
         "captcha",
+        "captchas",
         "coord",
         "fingerprintjs",
         "keyframes",
+        "pgzip",
         "pixelbot",
         "pixelcanvasio",
         "recaptcha",

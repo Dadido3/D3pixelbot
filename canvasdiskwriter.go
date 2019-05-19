@@ -19,7 +19,6 @@
 package main
 
 import (
-	"compress/gzip"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -30,6 +29,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	gzip "github.com/klauspost/pgzip"
 )
 
 type canvasDiskWriter struct {
@@ -64,7 +65,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	}
 
 	cdw.File = f
-	zipWriter, err := gzip.NewWriterLevel(f, gzip.BestSpeed)
+	zipWriter, err := gzip.NewWriterLevel(f, gzip.DefaultCompression)
 	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("Can't initialize compression %v: %v", filePath, err)

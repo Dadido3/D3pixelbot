@@ -36,6 +36,7 @@ func saveCanvasImage(can *canvas, rect image.Rectangle, filename string) error {
 	if err != nil {
 		return fmt.Errorf("Can't get image at %v: %v", rect, err)
 	}
+	//resized := resize.Resize(1000, 1000, img, resize.Lanczos3)
 	png.Encode(file, img)
 
 	return nil
@@ -54,34 +55,21 @@ func Test_newPixelcanvasio(t *testing.T) {
 	}
 	defer cdw.Close()
 
-	rect := image.Rect(-960, -400, 960, 400)
+	rect := image.Rect(-960, -450, 960, 450)
 	err = cdw.setListeningRects([]image.Rectangle{rect})
 	if err != nil {
 		t.Errorf("Can't set listening rectangle: %v", err)
 	}
 
-	// TODO: Wait until the rect is valid, instead of using sleep
-	time.Sleep(1 * time.Second)
-
-	if err := saveCanvasImage(can, rect, "./pixelcanvas-test-1.png"); err != nil {
-		t.Errorf("Can't save image to disk: %v", err)
+	// Stupid way of polling the canvas to check if everything is downloaded
+	for valid, err := can.isValid(rect); valid == false; valid, err = can.isValid(rect) {
+		if err != nil {
+			t.Errorf("isValid(rect) error: %v", err)
+		}
+		time.Sleep(1 * time.Second)
 	}
 
-	time.Sleep(5 * time.Second)
-
-	if err := saveCanvasImage(can, rect, "./pixelcanvas-test-2.png"); err != nil {
-		t.Errorf("Can't save image to disk: %v", err)
-	}
-
-	time.Sleep(10 * time.Second)
-
-	if err := saveCanvasImage(can, rect, "./pixelcanvas-test-3.png"); err != nil {
-		t.Errorf("Can't save image to disk: %v", err)
-	}
-
-	time.Sleep(60 * time.Second)
-
-	if err := saveCanvasImage(can, rect, "./pixelcanvas-test-4.png"); err != nil {
+	if err := saveCanvasImage(can, rect, "./pixelcanvas-test.png"); err != nil {
 		t.Errorf("Can't save image to disk: %v", err)
 	}
 }

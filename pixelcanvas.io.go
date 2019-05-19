@@ -14,6 +14,9 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+// TODO: Send pixels to game API
+// TODO: Handle captchas, and forward them somewhere
+
 package main
 
 import (
@@ -112,6 +115,7 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, *canvas, err
 	if con.Canvas != nil { // Without canvas there will be no ws connection, and no chunk downloading
 		myClient := &http.Client{Timeout: 1 * time.Minute}
 		downloadWaitgroup := sync.WaitGroup{}
+		downloadLimit := make(chan struct{}, 3) // Limit maximum amount of simultaneous downloads to 3
 		handleDownload := func(chu *chunk) error {
 			// Round to nearest bigchunk
 			ccOffset := image.Point(pixelcanvasioChunkSize).Mul(pixelcanvasioChunkCollectionRadius)
@@ -128,8 +132,10 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, *canvas, err
 			}
 
 			downloadWaitgroup.Add(1)
+			downloadLimit <- struct{}{}
 			go func() {
 				defer downloadWaitgroup.Done()
+				defer func() { <-downloadLimit }()
 
 				r, err := myClient.Get(fmt.Sprintf("https://pixelcanvas.io/api/bigchunk/%v.%v.bmp", cc.X, cc.Y))
 				if err != nil {
@@ -296,6 +302,7 @@ func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, *canvas, err
 		}()
 	}
 
+	// TODO: Authenticate before setting/sending a pixel
 	//fmt.Print(con.authenticateMe())
 
 	return con, con.Canvas, nil
