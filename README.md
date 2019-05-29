@@ -53,4 +53,4 @@ Afterwards the data could be used to create timelapses of nearly any part of the
 ## Screenshots
 
 A client running for a month:
-![<Image missing>](/screenshots/V0.946.png)
+![<Image missing>](/screens/V0.946.png)
