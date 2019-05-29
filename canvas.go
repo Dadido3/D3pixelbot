@@ -21,7 +21,6 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"log"
 	"sync"
 	"time"
 )
@@ -135,7 +134,7 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) (*canvas, <-chan *chu
 			case event, ok := <-can.EventChan:
 				if !ok {
 					// Close goroutine, as the channel is gone
-					log.Printf("Broadcaster closed!")
+					log.Trace("Broadcaster closed!")
 					return
 				}
 				switch event := event.(type) {

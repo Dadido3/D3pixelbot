@@ -26,7 +26,6 @@ import (
 	"image"
 	"image/color"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -97,7 +96,7 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 			}{}
 			if err := getJSON("https://pixelcanvas.io/api/online", response); err == nil {
 				atomic.StoreUint32(&con.OnlinePlayers, uint32(response.Online))
-				log.Printf("Player amount: %v", response.Online)
+				log.Debugf("Player amount: %v", response.Online)
 			}
 		}
 		getOnlinePlayers()
@@ -139,21 +138,21 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 
 				r, err := myClient.Get(fmt.Sprintf("https://pixelcanvas.io/api/bigchunk/%v.%v.bmp", cc.X, cc.Y))
 				if err != nil {
-					log.Printf("Can't get bigchunk at %v: %v", cc, err)
+					log.Errorf("Can't get bigchunk at %v: %v", cc, err)
 					return
 				}
 				defer r.Body.Close()
 
 				raw, err := ioutil.ReadAll(r.Body)
 				if err != nil {
-					log.Printf("Error in bigchunk result: %v", err)
+					log.Errorf("Error in bigchunk result: %v", err)
 					return
 				}
 				expectedLen := pixelcanvasioChunkSize.X * pixelcanvasioChunkSize.Y * ((pixelcanvasioChunkCollectionSize.X) * (pixelcanvasioChunkCollectionSize.Y)) / 2
 				if len(raw) != expectedLen {
-					log.Printf("Returned image data has the wrong length (%v, expected %v)", len(raw), expectedLen)
+					log.Errorf("Returned image data has the wrong length (%v, expected %v)", len(raw), expectedLen)
 					if len(raw) < 1000 {
-						log.Printf("API returned %v", string(raw))
+						log.Errorf("API returned %v", string(raw))
 					}
 					return
 				}
@@ -186,11 +185,11 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 
 				err = con.Canvas.setImage(img, false, true)
 				if err != nil {
-					log.Printf("Can't set image at %v: %v", img.Rect, err)
+					log.Warningf("Can't set image at %v: %v", img.Rect, err)
 					return
 				}
 
-				log.Printf("setImage() took %v", time.Now().Sub(startTime).Seconds())
+				log.Debugf("setImage() took %vs", time.Now().Sub(startTime).Seconds())
 
 			}()
 
@@ -216,7 +215,7 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 				// Get websocket URL
 				u, err := con.getWebsocketURL()
 				if err != nil {
-					log.Printf("Failed to connect to websocket server: %v", err)
+					log.Errorf("Failed to connect to websocket server: %v", err)
 					continue
 				}
 
@@ -225,7 +224,7 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 				// Connect to websocket server
 				c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 				if err != nil {
-					log.Printf("Failed to connect to websocket server %v: %v", u.String(), err)
+					log.Errorf("Failed to connect to websocket server %v: %v", u.String(), err)
 					continue
 				}
 
@@ -263,7 +262,7 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 				for {
 					_, message, err := c.ReadMessage()
 					if err != nil {
-						log.Printf("Websocket connection error: %v", err)
+						log.Warnf("Websocket connection error: %v", err)
 						break
 					}
 					if len(message) >= 1 {
@@ -277,17 +276,17 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 								colorIndex := uint8(mixed & 0x0F)
 								ox := int((mixed >> 4) & 0x3F)
 								oy := int((mixed >> 10) & 0x3F)
-								log.Printf("Pixelchange: color %v @ chunk %v, %v with offset %v, %v", colorIndex, cx, cy, ox, oy)
+								log.Tracef("Pixelchange: color %v @ chunk %v, %v with offset %v, %v", colorIndex, cx, cy, ox, oy)
 								pos := image.Point{
 									X: int(cx)*pixelcanvasioChunkSize.X + ox,
 									Y: int(cy)*pixelcanvasioChunkSize.Y + oy,
 								}
 								if err := con.Canvas.setPixelIndex(pos, colorIndex); err != nil {
-									log.Printf("Couldn't draw pixel at %v with color %v: %v", pos, colorIndex, err)
+									log.Warningf("Couldn't draw pixel at %v with color %v: %v", pos, colorIndex, err)
 								}
 							}
 						default:
-							log.Printf("Unknown websocket opcode: %v", opcode)
+							log.Errorf("Unknown websocket opcode: %v", opcode)
 						}
 
 					}
@@ -372,7 +371,7 @@ func (con *connectionPixelcanvasio) Close() {
 	// Stop goroutines gracefully
 	close(con.GoroutineQuit)
 
-	log.Printf("Waiting for downloads to finish")
+	log.Trace("Waiting for downloads to finish")
 	con.QuitWaitgroup.Wait()
 
 	con.Canvas.Close()

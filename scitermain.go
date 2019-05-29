@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 
 	"github.com/sciter-sdk/go-sciter"
@@ -45,7 +44,7 @@ func sciterOpenMain() {
 
 	ok := w.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
 	if !ok {
-		log.Println("set debug mode failed")
+		log.Errorf("Failed to set sciter debug mode")
 	}
 
 	w.DefineFunction("openLocal", func(args ...*sciter.Value) *sciter.Value {
@@ -62,8 +61,6 @@ func sciterOpenMain() {
 		if !ok {
 			return sciter.NewValue(fmt.Sprintf("game %v not found", game))
 		}
-
-		log.Println(game)
 
 		con, can, err := connectionType.FunctionNew(true)
 		if err != nil {

@@ -14,8 +14,6 @@
     You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-// TODO: Prevent any more actions after Close() has been called
-
 package main
 
 import (
@@ -23,7 +21,6 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -118,7 +115,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 				for _, rect := range cdw.Rectangles {
 					err := can.queryRect(rect)
 					if err != nil {
-						log.Printf("Can't query rectangle %v: %v", rect, err)
+						log.Warningf("Can't query rectangle %v: %v", rect, err)
 					}
 				}
 			case rects, ok := <-cdw.RectsChan:
@@ -130,7 +127,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 				for _, rect := range cdw.Rectangles {
 					err := can.queryRect(rect)
 					if err != nil {
-						log.Printf("Can't query rectangle %v: %v", rect, err)
+						log.Warningf("Can't query rectangle %v: %v", rect, err)
 					}
 				}
 			}

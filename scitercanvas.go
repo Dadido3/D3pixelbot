@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	"log"
 	"path/filepath"
 
 	"github.com/sciter-sdk/go-sciter"
@@ -61,7 +60,7 @@ func sciterOpenCanvas(con connection, can *canvas) {
 
 	ok := w.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
 	if !ok {
-		log.Println("set debug mode failed")
+		log.Errorf("Failed to set sciter debug mode")
 	}
 
 	w.DefineFunction("setEventHandler", func(args ...*sciter.Value) *sciter.Value {

@@ -18,7 +18,42 @@
 
 package main
 
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"time"
+
+	colorable "github.com/mattn/go-colorable"
+	"github.com/sirupsen/logrus"
+)
+
+var log = logrus.New()
+
 func main() {
+	log.SetReportCaller(true)
+	log.SetFormatter(&logrus.TextFormatter{
+		ForceColors: true,
+		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+			//return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filepath.Base(f.File), f.Line)
+			return fmt.Sprintf("%s()", f.Function), ""
+		},
+	})
+
+	os.MkdirAll(filepath.Join(".", "log"), os.ModePerm)
+	f, err := os.OpenFile(filepath.Join(".", "log", time.Now().Format("2006-01-02")+".log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+
+	log.SetOutput(io.MultiWriter(colorable.NewColorableStdout(), f)) // TODO: Separate formatting for logfiles
+	log.SetLevel(logrus.TraceLevel)
+
+	log.Info("D3pixelbot started")
+
 	// Init connection types
 	// TODO: Add connectionTypes in each game connection go file
 	connectionTypes = map[string]connectionType{
