@@ -30,8 +30,8 @@ const (
 )
 
 type pixelQueueElement struct {
-	Pos        image.Point
-	ColorIndex uint8
+	Pos   image.Point
+	Color color.Color
 }
 
 type chunk struct {
@@ -39,19 +39,20 @@ type chunk struct {
 
 	Rect    image.Rectangle
 	Palette color.Palette
-	Image   *image.Paletted // TODO: Compress or unload image when not needed
-	// TODO: Rewrite to handle any image type. So it can handle arbitrary colors from recordings
+	Image   image.Image // TODO: Compress or unload image when not needed
 
 	PixelQueue         []pixelQueueElement // Queued pixels, that are set while the image is downloading
 	Valid, Downloading bool                // Valid: Data is in sync with the game. Downloading: Data is being downloaded
 	LastQueryTime      time.Time           // Point in time, when that chunk was queried last time. If this chunk hasn't been queried for some period, it will be unloaded.
 }
 
-func newChunk(rect image.Rectangle, p color.Palette) *chunk {
+// Create new empty chunk with rect
+func newChunk(rect image.Rectangle) *chunk {
+	cRect := rect.Canon()
+
 	chunk := &chunk{
-		Rect:          rect.Canon(),
-		Palette:       p,
-		Image:         image.NewPaletted(rect, p),
+		Rect:          cRect,
+		Image:         &cRect,
 		PixelQueue:    []pixelQueueElement{},
 		LastQueryTime: time.Now(),
 	}
@@ -78,14 +79,15 @@ func (chu *chunk) getPixelIndex(pos image.Point) (uint8, error) {
 		return 0, fmt.Errorf("Position is outside of the chunk")
 	}
 
-	return chu.Image.ColorIndexAt(pos.X, pos.Y), nil
+	img, ok := chu.Image.(*image.Paletted)
+	if !ok {
+		return 0, fmt.Errorf("Chunk is not paletted")
+	}
+
+	return img.ColorIndexAt(pos.X, pos.Y), nil
 }
 
 func (chu *chunk) setPixel(pos image.Point, col color.Color) error {
-	return chu.setPixelIndex(pos, uint8(chu.Image.Palette.Index(col)))
-}
-
-func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 	chu.Lock()
 	defer chu.Unlock()
 
@@ -96,14 +98,50 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 	// TODO: Check if colorIndex is valid
 
 	if chu.Valid {
-		chu.Image.SetColorIndex(pos.X, pos.Y, colorIndex)
+		switch img := chu.Image.(type) {
+		case *image.RGBA:
+			img.Set(pos.X, pos.Y, col)
+		case *image.Paletted:
+			img.Set(pos.X, pos.Y, col)
+		default:
+			return fmt.Errorf("Incompatible chunk image type %T", img)
+		}
 	}
 
 	// If chunk is downloading, append to queue to draw them later
 	if chu.Downloading {
 		chu.PixelQueue = append(chu.PixelQueue, pixelQueueElement{
-			Pos:        pos,
-			ColorIndex: colorIndex,
+			Pos:   pos,
+			Color: col,
+		})
+	}
+
+	return nil
+}
+
+func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
+	chu.Lock()
+	defer chu.Unlock()
+
+	if !pos.In(chu.Rect) {
+		return fmt.Errorf("Position is outside of the chunk")
+	}
+
+	img, ok := chu.Image.(*image.Paletted)
+	if !ok {
+		return fmt.Errorf("Chunk is not paletted")
+	}
+
+	if int(colorIndex) >= len(img.Palette) {
+		return fmt.Errorf("Color index outside of available palette")
+	}
+	img.SetColorIndex(pos.X, pos.Y, colorIndex)
+
+	// If chunk is downloading, append to queue to draw them later
+	if chu.Downloading {
+		chu.PixelQueue = append(chu.PixelQueue, pixelQueueElement{
+			Pos:   pos,
+			Color: img.Palette[colorIndex],
 		})
 	}
 
@@ -117,54 +155,64 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 // All queued pixels will be replayed when this function is called.
 // This helps to prevent inconsistencies while downloading chunks.
 // The result image is an up to date copy containing all queued changes.
-func (chu *chunk) setImage(img image.Image) (*image.Paletted, error) {
+func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 	chu.Lock()
 	defer chu.Unlock()
 
-	if !chu.Rect.In(img.Bounds()) {
+	if !chu.Rect.In(srcImg.Bounds()) {
 		return nil, fmt.Errorf("The image doesn't fill the chunk completely")
 	}
 	if chu.Downloading == false {
 		return nil, fmt.Errorf("The download flag isn't set")
 	}
 
-	if ip, ok := img.(*image.Paletted); ok && isPaletteEqual(ip.Palette, chu.Image.Palette) {
-		for iy := chu.Rect.Min.Y; iy < chu.Rect.Max.Y; iy++ {
-			for ix := chu.Rect.Min.X; ix < chu.Rect.Max.X; ix++ {
-				offset1 := chu.Image.PixOffset(ix, iy)
-				offset2 := ip.PixOffset(ix, iy)
-				chu.Image.Pix[offset1] = ip.Pix[offset2] // TODO: Improve palette image copying
-			}
-		}
-	} else {
-		draw.Draw(chu.Image, chu.Image.Rect, img, chu.Image.Rect.Min, draw.Over)
+	// Create copy of a part of the source image. Fallback to RGBA image, if type is unknown
+	switch srcImg := srcImg.(type) {
+	case *image.Paletted:
+		newImg := image.NewPaletted(chu.Rect, srcImg.Palette)
+		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
+		chu.Image = newImg
+	default:
+		newImg := image.NewRGBA(chu.Rect)
+		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
+		chu.Image = newImg
 	}
 
 	// Replay all the queued pixels
 	for _, pqe := range chu.PixelQueue {
-		chu.Image.SetColorIndex(pqe.Pos.X, pqe.Pos.Y, pqe.ColorIndex)
+		switch img := chu.Image.(type) {
+		case *image.RGBA:
+			img.Set(pqe.Pos.X, pqe.Pos.Y, pqe.Color)
+		case *image.Paletted:
+			img.Set(pqe.Pos.X, pqe.Pos.Y, pqe.Color)
+		default:
+			return nil, fmt.Errorf("Incompatible chunk image type %T", img)
+		}
 	}
 
 	chu.PixelQueue = []pixelQueueElement{}
-	chu.Valid = true
 	chu.Downloading = false
 
-	imgCopy := *chu.Image
-	copy(imgCopy.Pix, chu.Image.Pix)
-	copy(imgCopy.Palette, chu.Image.Palette)
+	cpyImg, err := copyImage(chu.Image)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't copy image: %v", err)
+	}
 
-	return &imgCopy, nil
+	chu.Valid = true
+
+	return cpyImg, nil
 }
 
-func (chu *chunk) getImageCopy() *image.Paletted {
+func (chu *chunk) getImageCopy() (image.Image, error) {
 	chu.RLock()
 	defer chu.RUnlock()
 
-	img := *chu.Image
-	copy(img.Pix, chu.Image.Pix)
-	copy(img.Palette, chu.Image.Palette)
+	cpyImg, err := copyImage(chu.Image)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't copy image: %v", err)
+	}
 
-	return &img
+	return cpyImg, nil
 }
 
 // Invalidates the image, which shows that this chunk contains old or completely wrong data.

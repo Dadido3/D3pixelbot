@@ -274,6 +274,7 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 								cy := int16(binary.BigEndian.Uint16(message[3:]))
 								mixed := binary.BigEndian.Uint16(message[5:])
 								colorIndex := uint8(mixed & 0x0F)
+								color := pixelcanvasioPalette[colorIndex] // colorIndex technically can't be >= 16, so it should be save
 								ox := int((mixed >> 4) & 0x3F)
 								oy := int((mixed >> 10) & 0x3F)
 								log.Tracef("Pixelchange: color %v @ chunk %v, %v with offset %v, %v", colorIndex, cx, cy, ox, oy)
@@ -281,7 +282,7 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 									X: int(cx)*pixelcanvasioChunkSize.X + ox,
 									Y: int(cy)*pixelcanvasioChunkSize.Y + oy,
 								}
-								if err := con.Canvas.setPixelIndex(pos, colorIndex); err != nil {
+								if err := con.Canvas.setPixel(pos, color); err != nil {
 									log.Warningf("Couldn't draw pixel at %v with color %v: %v", pos, colorIndex, err)
 								}
 							}

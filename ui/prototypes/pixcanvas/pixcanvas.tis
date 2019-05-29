@@ -17,16 +17,16 @@ class PixCanvas : Behavior {
 		});
 	}
 
-	function convertChunkImage(jsonImg) {
-		var width = jsonImg.Rect.Max.X - jsonImg.Rect.Min.X;
-		var height = jsonImg.Rect.Max.Y - jsonImg.Rect.Min.Y;
-		var array = Bytes.fromString(jsonImg.Pix);
-		var stride = jsonImg.Stride;
+	function convertChunkImage(event) {
+		var width = event.Width;
+		var height = event.Height;
+		var array = Bytes.fromString(event.Array);
+		var stride = width * 4;
 		function imagePainter(img) {
 			for (var iy = 0; iy < height; iy++) {
 				for (var ix = 0; ix < width; ix++) {
-					var index = array[ix + iy*stride];
-					var color = Graphics.RGBA(index*255/15, index*255/15, index*255/15, 255);
+					var offset = ix * 4 + iy*stride;
+					var color = Graphics.RGBA(array[offset], array[offset + 1], array[offset + 2], array[offset + 3]);
 					img.colorAt(ix, iy, color); // TODO: Replace colorAt, convert image in go if possible
 				}
 			}
@@ -39,8 +39,8 @@ class PixCanvas : Behavior {
 	function eventHandler(e) {
 		switch (e.Type) {
 			case "SetImage": {
-				var img = convertChunkImage(e.Img);
-				this.chunks.push({x: e.Img.Rect.Min.X, y: e.Img.Rect.Min.Y, img: img});
+				var img = convertChunkImage(e);
+				this.chunks.push({x: e.X, y: e.Y, img: img});
 				break;
 			}
 		}

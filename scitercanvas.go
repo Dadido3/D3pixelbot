@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/color"
 	"path/filepath"
 
 	"github.com/sciter-sdk/go-sciter"
@@ -44,7 +45,7 @@ func sciterOpenCanvas(con connection, can *canvas) {
 	sciter.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
 	sciter.SetOption(sciter.SCITER_SET_SCRIPT_RUNTIME_FEATURES, sciter.ALLOW_FILE_IO|sciter.ALLOW_SOCKET_IO|sciter.ALLOW_EVAL|sciter.ALLOW_SYSINFO) // Needed for the inspector to work!
 
-	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG /*|sciter.SW_GLASSY*/, sciter.DefaultRect)
+	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG|sciter.SW_GLASSY, sciter.DefaultRect)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -144,13 +145,17 @@ func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
 	return nil
 }
 
-func (s *sciterCanvas) handleSetImage(img *image.Paletted) error {
+func (s *sciterCanvas) handleSetImage(img image.Image) error {
 	jsonData := struct {
-		Type string
-		Img  *image.Paletted // TODO: Forward RGBA image, instead of paletted image
+		Type          string
+		X, Y          int
+		Width, Height int
+		Array         []byte
 	}{
 		"SetImage",
-		img,
+		img.Bounds().Min.X, img.Bounds().Min.Y,
+		img.Bounds().Dx(), img.Bounds().Dy(),
+		imageToRGBAArray(img), // TODO: Pass it in a more efficient way
 	}
 
 	b, err := json.Marshal(jsonData)
@@ -163,21 +168,23 @@ func (s *sciterCanvas) handleSetImage(img *image.Paletted) error {
 	return nil
 }
 
-func (s *sciterCanvas) handleSetPixel(pos image.Point, colorIndex uint8) error {
+func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color) error {
+	r, g, b, a := color.RGBA()
+
 	jsonData := struct {
 		Type       string
 		Pos        image.Point
-		ColorIndex uint8 // TODO: Forward RGBA color, instead of index
+		R, G, B, A int
 	}{
 		"SetPixel",
 		pos,
-		colorIndex,
+		int(r), int(g), int(b), int(a),
 	}
 
-	b, err := json.Marshal(jsonData)
+	dat, err := json.Marshal(jsonData)
 	if err == nil {
 		val := sciter.NullValue()
-		val.ConvertFromString(string(b), sciter.CVT_JSON_LITERAL)
+		val.ConvertFromString(string(dat), sciter.CVT_JSON_LITERAL)
 		s.cbHandler.Invoke(s.object, "[Native Script]", val)
 	}
 

@@ -43,7 +43,7 @@ func main() {
 	})
 
 	os.MkdirAll(filepath.Join(".", "log"), os.ModePerm)
-	f, err := os.OpenFile(filepath.Join(".", "log", time.Now().Format("2006-01-02")+".log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(filepath.Join(".", "log", time.Now().UTC().Format("2006-01-02T150405")+".log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}

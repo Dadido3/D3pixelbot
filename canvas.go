@@ -32,12 +32,12 @@ type canvasEventInvalidateRect struct {
 }
 
 type canvasEventSetImage struct {
-	Image *image.Paletted
+	Image image.Image
 }
 
 type canvasEventSetPixel struct {
-	Pos        image.Point
-	ColorIndex uint8
+	Pos   image.Point
+	Color color.Color
 }
 
 type canvasEventSignalDownload struct {
@@ -49,8 +49,8 @@ type canvasEventSignalDownload struct {
 type canvasListener interface {
 	handleInvalidateAll() error
 	handleInvalidateRect(rect image.Rectangle) error
-	handleSetImage(img *image.Paletted) error
-	handleSetPixel(pos image.Point, colorIndex uint8) error
+	handleSetImage(img image.Image) error
+	handleSetPixel(pos image.Point, color color.Color) error
 	handleSignalDownload(rect image.Rectangle) error
 }
 
@@ -141,7 +141,7 @@ func newCanvas(chunkSize pixelSize, palette color.Palette) (*canvas, <-chan *chu
 				case canvasEventSetPixel:
 					can.RLock()
 					for listener := range can.Listeners {
-						listener.handleSetPixel(event.Pos, event.ColorIndex)
+						listener.handleSetPixel(event.Pos, event.Color)
 					}
 					can.RUnlock()
 				case canvasEventSetImage:
@@ -226,7 +226,6 @@ func (can *canvas) getChunk(coord chunkCoordinate, createIfNonexistent bool) (*c
 				Min: min,
 				Max: max,
 			},
-			can.Palette,
 		)
 
 		can.Chunks[coord] = chunk
@@ -281,30 +280,26 @@ func (can *canvas) getPixelIndex(pos image.Point) (uint8, error) {
 }
 
 func (can *canvas) setPixel(pos image.Point, col color.Color) error {
-	return can.setPixelIndex(pos, uint8(can.Palette.Index(col)))
-}
-
-func (can *canvas) setPixelIndex(pos image.Point, colorIndex uint8) error {
 	can.ClosedMutex.RLock()
 	defer can.ClosedMutex.RUnlock()
 	if can.Closed {
 		return fmt.Errorf("Canvas is closed")
 	}
 
-	chunkCoord := can.ChunkSize.getChunkCoord(pos)
-
-	// Forward event to broadcaster goroutine
+	// Forward event to broadcaster goroutine, even if there isn't a chunk.
 	can.EventChan <- canvasEventSetPixel{
-		Pos:        pos,
-		ColorIndex: colorIndex,
+		Pos:   pos,
+		Color: col,
 	}
+
+	chunkCoord := can.ChunkSize.getChunkCoord(pos)
 
 	chunk, err := can.getChunk(chunkCoord, false)
 	if err != nil {
 		return fmt.Errorf("Can't get chunk at %v: %v", chunkCoord, err)
 	}
 
-	return chunk.setPixelIndex(pos, colorIndex)
+	return chunk.setPixel(pos, col)
 }
 
 // Will update the canvas with the given image.
@@ -341,21 +336,25 @@ func (can *canvas) setImage(img image.Image, createIfNonexistent, ignoreNonexist
 	return nil
 }
 
-// Get image of the given rectangle.
+// Get RGBA image of the given rectangle.
 // The resulting image can be in an inconsistent state when some chunks change while it's generated.
+// But each chunk itself will be consistent.
 // To get consistent updates, you should rather subscribe to the canvas change broadcast.
-// Invalid or not existent chunks will be drawn with palette color 0.
-func (can *canvas) getImageCopy(rect image.Rectangle) (*image.Paletted, error) {
+// Invalid or not existent chunks will be drawn transparent.
+func (can *canvas) getImageCopy(rect image.Rectangle) (*image.RGBA, error) {
 	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
 	chunks, err := can.getChunks(chunkRect, false, true)
 	if err != nil {
 		return nil, fmt.Errorf("Can't get chunks from rectangle %v: %v", rect, err)
 	}
 
-	img := image.NewPaletted(rect, can.Palette)
+	img := image.NewRGBA(rect)
 
 	for _, chunk := range chunks {
-		draw.Draw(img, rect, chunk.getImageCopy(), rect.Min, draw.Over)
+		imgCopy, err := chunk.getImageCopy()
+		if err == nil {
+			draw.Draw(img, rect, imgCopy, rect.Min, draw.Over)
+		}
 	}
 
 	return img, nil

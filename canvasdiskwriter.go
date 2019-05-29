@@ -20,7 +20,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"image/draw"
+	"image/color"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -52,7 +52,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	name = re.ReplaceAllString(name, "_")
 
 	fileName := time.Now().UTC().Format("2006-01-02T150405") + ".pixrec" // Use RFC3339 like encoding, but with : removed
-	fileDirectory := filepath.Join(".", "Recordings", name)
+	fileDirectory := filepath.Join(".", "recordings", name)
 	filePath := filepath.Join(fileDirectory, fileName)
 
 	os.MkdirAll(fileDirectory, 0777)
@@ -85,22 +85,12 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 		Time:        time.Now().UnixNano(),
 		ChunkWidth:  uint32(can.ChunkSize.X),
 		ChunkHeight: uint32(can.ChunkSize.Y),
-		PaletteSize: uint16(len(can.Palette)),
 	})
 	if err != nil {
 		zipWriter.Close()
 		f.Close()
 		return nil, fmt.Errorf("Can't write to file %v: %v", filePath, err)
 	}
-
-	// Embed the palette. It's not used other than to initialize the canvas. (This will be removed when the canvas supports arbitrary colors)
-	for _, color := range can.Palette {
-		r, g, b, _ := color.RGBA()
-		binary.Write(cdw.ZipWriter, binary.LittleEndian, uint8(r))
-		binary.Write(cdw.ZipWriter, binary.LittleEndian, uint8(g))
-		binary.Write(cdw.ZipWriter, binary.LittleEndian, uint8(b))
-	}
-	// TODO: Handle errors in the palette writer
 
 	can.subscribeListener(cdw)
 
@@ -149,17 +139,14 @@ func (cdw *canvasDiskWriter) setListeningRects(rects []image.Rectangle) error {
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) error {
+func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, color color.Color) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
 		return fmt.Errorf("Listener is closed")
 	}
 
-	if int(colorIndex) >= len(cdw.Canvas.Palette) {
-		return fmt.Errorf("Index outside of palette")
-	}
-	r, g, b, _ := cdw.Canvas.Palette[colorIndex].RGBA()
+	r, g, b, _ := color.RGBA()
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType uint8
@@ -252,7 +239,7 @@ func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle) error {
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
+func (cdw *canvasDiskWriter) handleSetImage(img image.Image) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
@@ -260,9 +247,7 @@ func (cdw *canvasDiskWriter) handleSetImage(img *image.Paletted) error {
 	}
 
 	bounds := img.Bounds()
-	imgRGBA := image.NewRGBA(bounds)
-	draw.Draw(imgRGBA, bounds, img, bounds.Min, draw.Over)
-	arrayRGBA := imgRGBA.Pix
+	arrayRGBA := imageToRGBAArray(img)
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType      uint8

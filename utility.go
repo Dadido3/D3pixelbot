@@ -19,6 +19,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"image"
 	"image/color"
 	"io/ioutil"
 	"net/http"
@@ -93,4 +95,54 @@ func isPaletteEqual(pal1, pal2 color.Palette) bool {
 	}
 
 	return true
+}
+
+// Creates a copy of an image
+func copyImage(img image.Image) (image.Image, error) {
+	switch img := img.(type) {
+	case *image.RGBA:
+		imgCopy := &image.RGBA{
+			Pix:    make([]uint8, len(img.Pix)),
+			Stride: img.Stride,
+			Rect:   img.Rect,
+		}
+		copy(imgCopy.Pix, img.Pix)
+		return imgCopy, nil
+
+	case *image.Paletted:
+		imgCopy := &image.Paletted{
+			Pix:     make([]uint8, len(img.Pix)),
+			Stride:  img.Stride,
+			Rect:    img.Rect,
+			Palette: make(color.Palette, len(img.Palette)),
+		}
+		copy(imgCopy.Pix, img.Pix)
+		copy(imgCopy.Palette, img.Palette)
+		return imgCopy, nil
+	}
+
+	return nil, fmt.Errorf("Incompatible image type %T", img)
+}
+
+// Converts any image to an RGBA array
+func imageToRGBAArray(img image.Image) []byte {
+	rect := img.Bounds()
+	array := make([]byte, rect.Dx()*rect.Dy()*4)
+
+	i := 0
+	for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
+		for ix := rect.Min.X; ix < rect.Max.X; ix++ {
+			r, g, b, a := img.At(ix, iy).RGBA()
+			array[i] = byte(r)
+			i++
+			array[i] = byte(g)
+			i++
+			array[i] = byte(b)
+			i++
+			array[i] = byte(a)
+			i++
+		}
+	}
+
+	return array
 }
