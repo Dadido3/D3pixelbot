@@ -1,0 +1,63 @@
+<html window-frame="solid-with-shadow" window-blurbehind="dark" theme="dark" window-resizable window-frame="none">
+	<head>
+		<title>D3pixelbot</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<style>
+            html {
+				background: transparent;
+			}
+
+			body {
+				flow:	"1"
+						"2"
+						"4 3";
+				font:system;
+			}
+
+			.table { flow: row(label, select input div textarea button); border-spacing: 6dip;}
+			.table > label { padding:4dip; white-space:nowrap; horizontal-align:right; }
+			/*.table > * { display:block; }*/
+	  
+		</style>
+		<script type="text/tiscript">
+			$(#btn-open).subscribe("click", function() {
+				debug : $(form).value;
+				var values = $(form).value;
+				var type = values.type;
+				var game = values.game;
+
+				// TODO: Get game list from program
+
+				switch (type) {
+					case "local": {
+						var res = view.openLocal(game);
+						debug : res;
+						break;
+					}
+				}
+			});
+		</script>
+	</head>
+	
+	<body>
+		<h2>Create new connection:</h2>
+
+		<form .table>
+			<label>Type:</label>
+			<select(type) title="type">
+				<option selected value="local">local</option>
+				<option value="remote">remote</option>
+				<option value="replay">replay</option>
+			</select>
+
+			<label>Game:</label>
+			<select(game) title="game">
+				<option selected value="pixelcanvasio">PixelCanvas.io</option>
+			</select>
+		</form>
+
+		<button #btn-open>Open</button>
+
+	</body>
+	
+</html>

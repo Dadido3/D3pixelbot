@@ -1,0 +1,68 @@
+class PixCanvas : Behavior {
+	function attached() {
+		this.paintContent = this.draw;
+
+        this.viewOffsetX = 0;
+        this.viewOffsetY = 0;
+        this.viewZoom = 1;
+		this.chunks = [];
+
+		this.timer(1s, function() {
+			var rect = {
+				Min: {X: 0, Y: 0},
+				Max: {X: 100, Y: 100}
+			};
+			view.queryRect(rect);
+			return true; // keep timer running
+		});
+	}
+
+	function convertChunkImage(jsonImg) {
+		var width = jsonImg.Rect.Max.X - jsonImg.Rect.Min.X;
+		var height = jsonImg.Rect.Max.Y - jsonImg.Rect.Min.Y;
+		var array = Bytes.fromString(jsonImg.Pix);
+		var stride = jsonImg.Stride;
+		function imagePainter(img) {
+			for (var iy = 0; iy < height; iy++) {
+				for (var ix = 0; ix < width; ix++) {
+					var index = array[ix + iy*stride];
+					var color = Graphics.RGBA(index*255/15, index*255/15, index*255/15, 255);
+					img.colorAt(ix, iy, color); // TODO: Replace colorAt, convert image in go if possible
+				}
+			}
+		}
+		var img = new Image(width, height, Graphics.RGBA("white"), function(gfx) {});
+		imagePainter(img);
+		return img;
+	}
+
+	function eventHandler(e) {
+		switch (e.Type) {
+			case "SetImage": {
+				var img = convertChunkImage(e.Img);
+				this.chunks.push({x: e.Img.Rect.Min.X, y: e.Img.Rect.Min.Y, img: img});
+				break;
+			}
+		}
+	}
+
+	function draw(gfx) {
+		var (viewOffsetX, viewOffsetY, viewZoom) = (this.viewOffsetX, this.viewOffsetY, this.viewZoom);
+		
+		var (x,y,w,h) = this.box(#rectw);
+		gfx.save();
+		//gfx.translate(0.5, 0.5);
+		gfx.pushLayer(#inner-box);
+		
+		//gfx.lineCap = Graphics.CAP_ROUND;
+		//gfx.lineWidth(1);
+		//gfx.lineColor(color(0, 0, 0));
+
+		for(var chunk in this.chunks) {
+        	gfx.drawImage(chunk.img, chunk.x, chunk.y);
+		}
+
+		gfx.popLayer();
+		gfx.restore();
+	}
+}

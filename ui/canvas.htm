@@ -1,0 +1,66 @@
+<html window-frame="solid-with-shadow" window-blurbehind="dark" theme="dark" window-resizable window-frame="none">
+	<head>
+		<title>D3pixelbot canvas viewer</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<style>
+			@import url("prototypes/pixcanvas/pixcanvas.css");
+			
+            html {
+				background: transparent;
+			}
+			
+			body {
+				flow: vertical;
+				margin: 0;
+			}
+			
+			toolbar {
+				flow: horizontal;
+				background: rgba(0, 0, 0, 255);
+			}
+			
+			toolbar > button {
+				border: none;
+				border-radius: 2pt;
+				background: transparent;
+				padding: 10px;
+				color: rgb(255, 255, 255);
+			}
+			
+			toolbar > button > icon {
+				fill: white;
+				stroke: none;
+				size: 30px;
+			}
+
+			pixcanvas {
+				height: *;
+			}
+			
+		</style>
+		<script type="text/tiscript">
+			function canvasInit() {
+				var pc = $(pixcanvas);
+
+				var err = view.setEventHandler(pc, pc.eventHandler);
+			}
+
+			function self.ready() {
+				view.connectToInspector();
+				self.post(canvasInit);
+			}
+		</script>
+	</head>
+	
+	<body>
+		
+		<toolbar>
+			<button #btn-templates><icon.icon-fa-table/></button>
+		</toolbar>
+		
+		<pixcanvas>
+		</pixcanvas>
+		
+	</body>
+	
+</html>

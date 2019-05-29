@@ -73,7 +73,7 @@ type connectionPixelcanvasio struct {
 	ChunkDownloadChan <-chan *chunk // Receives download requests from the canvas
 }
 
-func newPixelcanvasio(createCanvas bool) (*connectionPixelcanvasio, *canvas, error) {
+func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 	con := &connectionPixelcanvasio{
 		Fingerprint:   "11111111111111111111111111111111",
 		GoroutineQuit: make(chan struct{}),
@@ -366,6 +366,7 @@ func (con *connectionPixelcanvasio) authenticateMe() error {
 	return nil
 }
 
+// Closes connection and canvas, if one was created at the beginning
 func (con *connectionPixelcanvasio) Close() {
 
 	// Stop goroutines gracefully

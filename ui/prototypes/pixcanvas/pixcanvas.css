@@ -1,0 +1,4 @@
+pixcanvas {
+	display: block;
+	prototype: PixCanvas url(pixcanvas.tis);
+}

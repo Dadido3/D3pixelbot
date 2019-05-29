@@ -14,20 +14,18 @@
     You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-// TODO: Change channels to be handled and closed by the sending side, to prevent write access to already closed channels.
-
 package main
 
-func main() {
-	// Init connection types
-	// TODO: Add connectionTypes in each game connection go file
-	connectionTypes = map[string]connectionType{
-		"pixelcanvasio": connectionType{
-			Name:        "PixelCanvas.io",
-			ShortName:   "pixelcanvasio",
-			FunctionNew: newPixelcanvasio,
-		},
-	}
-
-	sciterOpenMain()
+type connection interface {
+	getOnlinePlayers() int
+	Close()
 }
+
+type connectionType struct {
+	Name      string // Shown in UI
+	ShortName string // Used in filesystem and internally
+
+	FunctionNew func(createCanvas bool) (connection, *canvas, error)
+}
+
+var connectionTypes map[string]connectionType

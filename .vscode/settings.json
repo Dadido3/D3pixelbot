@@ -15,10 +15,12 @@
         "fingerprintjs",
         "keyframes",
         "pgzip",
+        "pixcanvas",
         "pixelbot",
         "pixelcanvasio",
         "recaptcha",
         "rect",
+        "sciter",
         "tevino",
         "timelapses"
     ]

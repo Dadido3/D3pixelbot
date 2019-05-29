@@ -181,6 +181,7 @@ func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, colorIndex uint8) e
 	if err != nil {
 		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
 	}
+
 	return nil
 }
 
