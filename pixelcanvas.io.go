@@ -38,6 +38,7 @@ import (
 var pixelcanvasioChunkSize = pixelSize{64, 64}
 var pixelcanvasioChunkCollectionRadius = 7
 var pixelcanvasioChunkCollectionSize = chunkSize{pixelcanvasioChunkCollectionRadius*2 + 1, pixelcanvasioChunkCollectionRadius*2 + 1} // Arraysize of chunks that's returned on the bigchunk request
+var pixelcanvasioCanvasRect = image.Rectangle{image.Point{-999999, -999999}, image.Point{1000000, 1000000}}
 
 var pixelcanvasioPalette = []color.Color{
 	color.RGBA{255, 255, 255, 255},
@@ -79,7 +80,7 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 	}
 
 	if createCanvas {
-		con.Canvas, con.ChunkDownloadChan = newCanvas(pixelcanvasioChunkSize, pixelcanvasioPalette)
+		con.Canvas, con.ChunkDownloadChan = newCanvas(pixelcanvasioChunkSize, pixelcanvasioCanvasRect, pixelcanvasioPalette)
 	}
 
 	// Main goroutine that handles queries and timed things

@@ -1,28 +1,41 @@
 class PixCanvas : Behavior {
 	function attached() {
-		this.paintContent = this.draw;
-
-        this.viewOffsetX = 0;
-        this.viewOffsetY = 0;
-        this.viewZoom = 1;
-		this.chunks = [];
+		this.canvasWidth = 1999999;
+		this.canvasHeight = 1999999; // TODO: Get correct values from the canvas instance
+		this.canvasCenterX = 1000000; // Offset to the center coordinate, as the container can't be moved
+		this.canvasCenterY = 1000000;
 
 		this.timer(1s, function() {
+			var left = this.scroll(#left);
+			var top = this.scroll(#top);
+			var width = this.scroll(#width);
+			var height = this.scroll(#height);
+
+			left = left - this.canvasCenterX;
+			top = top - this.canvasCenterY;
+
 			var rect = {
-				Min: {X: 0, Y: 0},
-				Max: {X: 100, Y: 100}
+				Min: {X: left, Y: top},
+				Max: {X: left+width, Y: top+height}
 			};
 			view.queryRect(rect);
 			return true; // keep timer running
 		});
+
+		this.$(> div).style.set({
+			width: this.canvasWidth,
+			height: this.canvasHeight 
+		});
+
+		//this.scrollTo(this.canvasCenterX, this.canvasCenterY, false, true);
 	}
 
-	function convertChunkImage(event) {
-		var width = event.Width;
-		var height = event.Height;
-		var array = Bytes.fromString(event.Array);
-		var stride = width * 4;
+	function eventSetImage(event) {
+		var (x, y) = (event.X, event.Y);
+		var (width, height) = (event.Width, event.Height)
 		function imagePainter(img) {
+			var array = Bytes.fromString(event.Array);
+			var stride = width * 4;
 			for (var iy = 0; iy < height; iy++) {
 				for (var ix = 0; ix < width; ix++) {
 					var offset = ix * 4 + iy*stride;
@@ -31,16 +44,27 @@ class PixCanvas : Behavior {
 				}
 			}
 		}
+		var imgElement = new Element("img");
+		this.$(>div).append(imgElement);
 		var img = new Image(width, height, Graphics.RGBA("white"), function(gfx) {});
-		imagePainter(img);
-		return img;
+		if (event.Array) {
+			imagePainter(img);
+		}
+		imgElement.bindImage("in-memory:chunk:"+x+":"+y, img);
+		imgElement.attributes["src"] = "in-memory:chunk:"+x+":"+y;
+		imgElement.style.set({
+			width: width,
+			height: height,
+			left: x + this.canvasCenterX,
+			top: y + this.canvasCenterY
+		});
+		imgElement.img = img;
 	}
 
 	function eventHandler(e) {
 		switch (e.Type) {
 			case "SetImage": {
-				var img = convertChunkImage(e);
-				this.chunks.push({x: e.X, y: e.Y, img: img});
+				this.eventSetImage(e);
 				break;
 			}
 		}
@@ -49,7 +73,8 @@ class PixCanvas : Behavior {
 	function draw(gfx) {
 		var (viewOffsetX, viewOffsetY, viewZoom) = (this.viewOffsetX, this.viewOffsetY, this.viewZoom);
 		
-		var (x,y,w,h) = this.box(#rectw);
+		var (left, top, right, bottom) = this.scroll(#rect);
+		debug : top;
 		gfx.save();
 		//gfx.translate(0.5, 0.5);
 		gfx.pushLayer(#inner-box);

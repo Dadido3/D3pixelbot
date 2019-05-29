@@ -59,6 +59,7 @@ type canvas struct {
 	Closed      bool
 	ClosedMutex sync.RWMutex
 
+	Rect   image.Rectangle // Valid area of the canvas // TODO: Enforce canvas limit
 	Chunks map[chunkCoordinate]*chunk
 
 	ChunkSize pixelSize
@@ -70,13 +71,13 @@ type canvas struct {
 	Listeners        map[canvasListener]bool // Events get forwarded to these listeners
 }
 
-func newCanvas(chunkSize pixelSize, palette color.Palette) (*canvas, <-chan *chunk) {
+func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Palette) (*canvas, <-chan *chunk) {
 	can := &canvas{
 		Chunks:           make(map[chunkCoordinate]*chunk, 0),
 		ChunkSize:        chunkSize,
 		Palette:          palette,
 		EventChan:        make(chan interface{}), // TODO: Determine optimal chan size (Add waitGroup when channel buffering is enabled!)
-		RectQueryChan:    make(chan image.Rectangle),
+		RectQueryChan:    make(chan image.Rectangle, 100),
 		ChunkRequestChan: make(chan *chunk),
 		Listeners:        make(map[canvasListener]bool),
 	}
@@ -200,8 +201,12 @@ func (can *canvas) queryRect(rect image.Rectangle) error {
 	}
 
 	// Forward event to goroutine
-	can.RectQueryChan <- rect // TODO: Make channel buffered. When it is full, return error
-	return nil
+	select {
+		case can.RectQueryChan <- rect:
+			return nil
+		default:
+			return fmt.Errorf("Query queue is full")
+	}
 }
 
 func (can *canvas) getChunk(coord chunkCoordinate, createIfNonexistent bool) (*chunk, error) {

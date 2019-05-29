@@ -1,4 +1,14 @@
 pixcanvas {
-	display: block;
 	prototype: PixCanvas url(pixcanvas.tis);
+	display: block;
+
+	overflow: scroll-indicator;
+}
+
+pixcanvas > div {
+	position:relative;
+}
+
+pixcanvas > div > img {
+	position:absolute;
 }
