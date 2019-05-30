@@ -34,9 +34,7 @@ type canvasDiskWriter struct {
 	Closed      bool
 	ClosedMutex sync.RWMutex
 
-	Canvas     *canvas
-	Rectangles []image.Rectangle      // A list of canvas areas, that should be kept up to date automatically
-	RectsChan  chan []image.Rectangle // Moves the list of rectangles to the goroutine internally
+	Canvas *canvas
 
 	File      *os.File
 	ZipWriter *gzip.Writer
@@ -44,8 +42,7 @@ type canvasDiskWriter struct {
 
 func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	cdw := &canvasDiskWriter{
-		Canvas:    can,
-		RectsChan: make(chan []image.Rectangle),
+		Canvas: can,
 	}
 
 	re := regexp.MustCompile("[^a-zA-Z0-9\\-\\.]+")
@@ -94,36 +91,6 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 
 	can.subscribeListener(cdw)
 
-	// Goroutine that queries rectangles
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				for _, rect := range cdw.Rectangles {
-					err := can.queryRect(rect)
-					if err != nil {
-						log.Warningf("Can't query rectangle %v: %v", rect, err)
-					}
-				}
-			case rects, ok := <-cdw.RectsChan:
-				if !ok {
-					// Close goroutine, as the channel is gone
-					return
-				}
-				cdw.Rectangles = rects
-				for _, rect := range cdw.Rectangles {
-					err := can.queryRect(rect)
-					if err != nil {
-						log.Warningf("Can't query rectangle %v: %v", rect, err)
-					}
-				}
-			}
-		}
-	}()
-
 	return cdw, nil
 }
 
@@ -134,7 +101,7 @@ func (cdw *canvasDiskWriter) setListeningRects(rects []image.Rectangle) error {
 		return fmt.Errorf("Listener is closed")
 	}
 
-	cdw.RectsChan <- rects
+	cdw.Canvas.registerRects(cdw, rects, true)
 
 	return nil
 }
@@ -274,6 +241,18 @@ func (cdw *canvasDiskWriter) handleSetImage(img image.Image) error {
 	return nil
 }
 
+func (cdw *canvasDiskWriter) handleChunksChange(create, remove []image.Rectangle) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
+	// There is no need to write that data to disk
+
+	return nil
+}
+
 func (cdw *canvasDiskWriter) Close() {
 	cdw.Canvas.unsubscribeListener(cdw)
 	cdw.handleInvalidateAll()
@@ -281,8 +260,6 @@ func (cdw *canvasDiskWriter) Close() {
 	cdw.ClosedMutex.RLock()
 	cdw.Closed = true // Prevent any new events from happening
 	cdw.ClosedMutex.RUnlock()
-
-	close(cdw.RectsChan) // This will stop the goroutine after all events are processed
 
 	cdw.ZipWriter.Close()
 	cdw.File.Close()

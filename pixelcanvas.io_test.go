@@ -32,7 +32,7 @@ func saveCanvasImage(can *canvas, rect image.Rectangle, filename string) error {
 	}
 	defer file.Close()
 
-	img, err := can.getImageCopy(rect)
+	img, err := can.getImageCopy(rect, true, false)
 	if err != nil {
 		return fmt.Errorf("Can't get image at %v: %v", rect, err)
 	}

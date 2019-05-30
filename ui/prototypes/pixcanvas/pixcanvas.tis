@@ -5,6 +5,7 @@ class PixCanvas : Behavior {
 		this.canvasCenterX = 1000000; // Offset to the center coordinate, as the container can't be moved
 		this.canvasCenterY = 1000000;
 
+		// TODO: Only call registerRects, if the rects have changed
 		this.timer(1s, function() {
 			var left = this.scroll(#left);
 			var top = this.scroll(#top);
@@ -14,11 +15,11 @@ class PixCanvas : Behavior {
 			left = left - this.canvasCenterX;
 			top = top - this.canvasCenterY;
 
-			var rect = {
+			var rects = [{
 				Min: {X: left, Y: top},
 				Max: {X: left+width, Y: top+height}
-			};
-			view.queryRect(rect);
+			}];
+			view.registerRects(rects);
 			return true; // keep timer running
 		});
 
@@ -30,8 +31,23 @@ class PixCanvas : Behavior {
 		//this.scrollTo(this.canvasCenterX, this.canvasCenterY, false, true);
 	}
 
+	function getChunk(x, y) {
+		for (var elem in this.$(>div)) {
+			if (elem.MinX == x && elem.MinY == y) {
+				return elem;
+			}
+		}
+		return;
+	}
+
 	function eventSetImage(event) {
 		var (x, y) = (event.X, event.Y);
+
+		var imgElement = this.getChunk(x, y);
+		if (imgElement == null) {
+			return;
+		}
+
 		var (width, height) = (event.Width, event.Height)
 		function imagePainter(img) {
 			var array = Bytes.fromString(event.Array);
@@ -44,27 +60,42 @@ class PixCanvas : Behavior {
 				}
 			}
 		}
-		var imgElement = new Element("img");
-		this.$(>div).append(imgElement);
 		var img = new Image(width, height, Graphics.RGBA("white"), function(gfx) {});
 		if (event.Array) {
 			imagePainter(img);
 		}
 		imgElement.bindImage("in-memory:chunk:"+x+":"+y, img);
 		imgElement.attributes["src"] = "in-memory:chunk:"+x+":"+y;
-		imgElement.style.set({
-			width: width,
-			height: height,
-			left: x + this.canvasCenterX,
-			top: y + this.canvasCenterY
-		});
 		imgElement.img = img;
+	}
+
+	function eventChunksChange(event) {
+		for (var rect in event.Remove) {
+			this.getChunk(rect.Min.X, rect.Min.Y).remove();
+		}
+
+		for (var rect in event.Create) {
+        	var imgElement = new Element("img");
+			this.$(>div).append(imgElement);
+			imgElement.style.set({
+				width: rect.Max.X-rect.Min.X,
+				height: rect.Max.Y-rect.Min.Y,
+				left: rect.Min.X + this.canvasCenterX,
+				top: rect.Min.Y + this.canvasCenterY
+			});
+			imgElement.MinX = rect.Min.X;
+			imgElement.MinY = rect.Min.Y;
+		}
 	}
 
 	function eventHandler(e) {
 		switch (e.Type) {
 			case "SetImage": {
 				this.eventSetImage(e);
+				break;
+			}
+			case "ChunksChange": {
+				this.eventChunksChange(e);
 				break;
 			}
 		}

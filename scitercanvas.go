@@ -45,7 +45,7 @@ func sciterOpenCanvas(con connection, can *canvas) {
 	sciter.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
 	sciter.SetOption(sciter.SCITER_SET_SCRIPT_RUNTIME_FEATURES, sciter.ALLOW_FILE_IO|sciter.ALLOW_SOCKET_IO|sciter.ALLOW_EVAL|sciter.ALLOW_SYSINFO) // Needed for the inspector to work!
 
-	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG|sciter.SW_GLASSY, sciter.DefaultRect)
+	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG /*|sciter.SW_GLASSY*/, sciter.DefaultRect)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,7 +84,15 @@ func sciterOpenCanvas(con connection, can *canvas) {
 		return nil
 	})
 
-	w.DefineFunction("queryRect", func(args ...*sciter.Value) *sciter.Value {
+	rectsChan := make(chan []image.Rectangle, 1)
+	defer close(rectsChan)
+	go func() {
+		for rects := range rectsChan {
+			can.registerRects(sca, rects, false)
+		}
+	}()
+
+	w.DefineFunction("registerRects", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
 			return sciter.NewValue("Wrong number of parameters")
 		}
@@ -95,12 +103,21 @@ func sciterOpenCanvas(con connection, can *canvas) {
 
 		jsonRect.ConvertToString(sciter.CVT_JSON_LITERAL)
 
-		rect := image.Rectangle{}
-		if err := json.Unmarshal([]byte(jsonRect.String()), &rect); err != nil {
+		rects := []image.Rectangle{}
+		if err := json.Unmarshal([]byte(jsonRect.String()), &rects); err != nil {
 			return sciter.NewValue(fmt.Sprintf("Error reading json: %v", err))
 		}
 
-		can.queryRect(rect)
+		// Write rect into channel, or replace the current one if the goroutine is busy
+		select {
+		case rectsChan <- rects:
+		default:
+			select {
+			case <-rectsChan:
+			default:
+			}
+			rectsChan <- rects
+		}
 
 		return nil
 	})
@@ -198,6 +215,25 @@ func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle) error {
 	}{
 		"SignalDownload",
 		rect,
+	}
+
+	b, err := json.Marshal(jsonData)
+	if err == nil {
+		val := sciter.NullValue()
+		val.ConvertFromString(string(b), sciter.CVT_JSON_LITERAL)
+		s.cbHandler.Invoke(s.object, "[Native Script]", val)
+	}
+
+	return nil
+}
+
+func (s *sciterCanvas) handleChunksChange(create, remove []image.Rectangle) error {
+	jsonData := struct {
+		Type           string
+		Create, Remove []image.Rectangle
+	}{
+		"ChunksChange",
+		create, remove,
 	}
 
 	b, err := json.Marshal(jsonData)

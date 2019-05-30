@@ -19,13 +19,13 @@ sequenceDiagram
     participant game connection
     participant chunk
 
-    loop goroutine
-        listener1 ->> canvas: queryRect(rect) every minute
-        note right of listener1: Or more frequent<br>if rectangles change
+    
+    listener1 ->> canvas: registerRects(rect)
+    loop canvas goroutine
+        canvas ->> chunk: creates chunk if necessary. getQueryState(true)
+        chunk ->> canvas: result: download or keep existing chunk
+        canvas --x game connection: request chunk download
     end
-    canvas ->> chunk: creates chunk if necessary. getQueryState(true)
-    chunk ->> canvas: result: download or keep existing chunk
-    canvas --x game connection: request chunk download
     game connection ->> canvas: signalDownload(rect)
     canvas ->> +chunk: signalDownload()
     canvas ->> listener1: handleSignalDownload(rect)

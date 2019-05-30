@@ -126,14 +126,15 @@ func newPixelcanvasio(createCanvas bool) (connection, *canvas, error) {
 				Max: image.Point(cc).Add(image.Point{pixelcanvasioChunkCollectionRadius + 1, pixelcanvasioChunkCollectionRadius + 1}),
 			}}.getPixelRectangle(pixelcanvasioChunkSize)
 
+			// Signalling must not be in the goroutine, so that the download isn't started several times because of neighbors
 			_, err := con.Canvas.signalDownload(ca)
 			if err != nil {
 				return fmt.Errorf("Can't signal downloading of chunks at %v: %v", cc, err)
 			}
 
 			downloadWaitgroup.Add(1)
-			downloadLimit <- struct{}{}
 			go func() {
+				downloadLimit <- struct{}{} // Block inside the goroutine, so downloads will queue up without blocking anything else
 				defer downloadWaitgroup.Done()
 				defer func() { <-downloadLimit }()
 

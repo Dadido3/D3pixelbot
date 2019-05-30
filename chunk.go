@@ -203,9 +203,13 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 	return cpyImg, nil
 }
 
-func (chu *chunk) getImageCopy() (image.Image, error) {
+func (chu *chunk) getImageCopy(onlyIfValid bool) (image.Image, error) {
 	chu.RLock()
 	defer chu.RUnlock()
+
+	if onlyIfValid && !chu.Valid {
+		return nil, fmt.Errorf("Chunk is not valid")
+	}
 
 	cpyImg, err := copyImage(chu.Image)
 	if err != nil {
