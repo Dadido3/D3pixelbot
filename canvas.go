@@ -534,21 +534,21 @@ func (can *canvas) invalidateAll() error {
 	return nil
 }
 
-// Returns true if the all intersecting chunks are valid
-func (can *canvas) isValid(rect image.Rectangle) (bool, error) {
+// Returns true if the all intersecting chunks are valid and existent
+func (can *canvas) isValid(rect image.Rectangle) bool {
 	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
-	chunks, err := can.getChunks(chunkRect, false, true)
+	chunks, err := can.getChunks(chunkRect, false, false)
 	if err != nil {
-		return false, fmt.Errorf("Can't get chunks from rectangle %v: %v", rect, err)
+		return false
 	}
 
 	for _, chunk := range chunks {
 		if !chunk.Valid {
-			return false, nil
+			return false
 		}
 	}
 
-	return true, nil
+	return true
 }
 
 // Signals that the specified rect is being downloaded.

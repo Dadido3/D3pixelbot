@@ -62,10 +62,7 @@ func Test_newPixelcanvasio(t *testing.T) {
 	}
 
 	// Stupid way of polling the canvas to check if everything is downloaded
-	for valid, err := can.isValid(rect); valid == false; valid, err = can.isValid(rect) {
-		if err != nil {
-			t.Errorf("isValid(rect) error: %v", err)
-		}
+	for valid := can.isValid(rect); valid == false; valid = can.isValid(rect) {
 		time.Sleep(1 * time.Second)
 	}
 
