@@ -166,24 +166,60 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 				}
 				switch event := event.(type) {
 				case canvasEventSetPixel:
-					for listener := range listeners { // TODO: Limit forwarding to rects
-						listener.handleSetPixel(event.Pos, event.Color)
+					for listener, state := range listeners {
+						if state.ForwardAll {
+							listener.handleSetPixel(event.Pos, event.Color)
+							continue
+						}
+						for rect := range state.Chunks {
+							if event.Pos.In(rect) {
+								listener.handleSetPixel(event.Pos, event.Color)
+								break
+							}
+						}
 					}
 				case canvasEventSetImage:
-					for listener := range listeners {
-						listener.handleSetImage(event.Image)
+					for listener, state := range listeners {
+						if state.ForwardAll {
+							listener.handleSetImage(event.Image)
+							continue
+						}
+						for rect := range state.Chunks {
+							if event.Image.Bounds().Overlaps(rect) {
+								listener.handleSetImage(event.Image)
+								break
+							}
+						}
 					}
 				case canvasEventInvalidateRect:
-					for listener := range listeners {
-						listener.handleInvalidateRect(event.Rect)
+					for listener, state := range listeners {
+						if state.ForwardAll {
+							listener.handleInvalidateRect(event.Rect)
+							continue
+						}
+						for rect := range state.Chunks {
+							if event.Rect.Overlaps(rect) {
+								listener.handleInvalidateRect(event.Rect)
+								break
+							}
+						}
 					}
 				case canvasEventInvalidateAll:
 					for listener := range listeners {
 						listener.handleInvalidateAll()
 					}
 				case canvasEventSignalDownload:
-					for listener := range listeners {
-						listener.handleSignalDownload(event.Rect)
+					for listener, state := range listeners {
+						if state.ForwardAll {
+							listener.handleSignalDownload(event.Rect)
+							continue
+						}
+						for rect := range state.Chunks {
+							if event.Rect.Overlaps(rect) {
+								listener.handleSignalDownload(event.Rect)
+								break
+							}
+						}
 					}
 				case canvasEventListenerSubscribe:
 					//log.Tracef("Listener %v subscribed", event.Listener)

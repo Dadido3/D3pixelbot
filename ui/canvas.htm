@@ -10,30 +10,18 @@
 			}
 			
 			body {
-				flow: vertical;
+				flow:	"1 2";
+				font:system;
 				margin: 0;
 			}
-			
-			toolbar {
-				flow: horizontal;
-				background: rgba(0, 0, 0, 255);
-			}
-			
-			toolbar > button {
-				border: none;
-				border-radius: 2pt;
-				background: transparent;
-				padding: 10px;
-				color: rgb(255, 255, 255);
-			}
-			
-			toolbar > button > icon {
-				fill: white;
-				stroke: none;
-				size: 30px;
+
+			#sidebar {
+				padding: 2em;
 			}
 
 			pixcanvas {
+				background-color: rgba(0, 0, 0, 0.247);
+				width: *;
 				height: *;
 			}
 			
@@ -57,9 +45,10 @@
 	
 	<body>
 		
-		<toolbar>
-			<button #btn-templates><icon.icon-fa-table/></button>
-		</toolbar>
+		<div #sidebar>
+			<label>Test</label>
+			<output|text(first)/>
+		</div>
 		
 		<pixcanvas>
 			<div>

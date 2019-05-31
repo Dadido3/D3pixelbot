@@ -31,21 +31,35 @@ class PixCanvas : Behavior {
 		//this.scrollTo(this.canvasCenterX, this.canvasCenterY, false, true);
 	}
 
-	function getChunk(x, y) {
+	function getChunk(x, y) { // TODO: Create function that returns chunks intersecting with a given rectangle
 		for (var elem in this.$(>div)) {
-			if (elem.MinX == x && elem.MinY == y) {
+			if (x >= elem.MinX && y >= elem.MinY && x < elem.MaxX && y < elem.MaxY) {
 				return elem;
 			}
 		}
 		return;
 	}
 
+	function eventInvalidateAll(event) {
+		for (var elem in this.$(>div)) {
+			// TODO: Show invalid chunks
+		}
+	}
+
+	function InvalidateRect(event) {
+		var elem = this.getChunk(event.X, event.Y);
+		if (elem == null) {
+			return;
+		}
+		// TODO: Show invalid chunks
+	}
+
 	function eventSetImage(event) {
 		var (x, y) = (event.X, event.Y);
 		var (width, height) = (event.Width, event.Height)
 
-		var imgElement = this.getChunk(x, y);
-		if (imgElement == null) {
+		var elem = this.getChunk(x, y);
+		if (elem == null) {
 			return;
 		}
 
@@ -64,9 +78,30 @@ class PixCanvas : Behavior {
 		if (event.Array) {
 			imagePainter(img);
 		}
-		imgElement.bindImage("in-memory:chunk:"+x+":"+y, img);
-		imgElement.attributes["src"] = "in-memory:chunk:"+x+":"+y;
-		imgElement.img = img;
+		elem.bindImage("in-memory:chunk:"+x+":"+y, img);
+		elem.attributes["src"] = "in-memory:chunk:"+x+":"+y;
+		elem.img = img;
+	}
+
+	function eventSetPixel(event) {
+		var (x, y) = (event.X, event.Y);
+		var elem = this.getChunk(x, y);
+		if (elem == null || elem.img == null) {
+			return;
+		}
+		var (cx, cy) = (x - elem.MinX, y - elem.MinY);
+		elem.img.colorAt(cx, cy, Graphics.RGBA(event.R, event.G, event.B, event.A));
+		elem.bindImage("in-memory:chunk:"+x+":"+y, elem.img);
+		elem.attributes["src"] = "in-memory:chunk:"+x+":"+y; // TODO: Check if rebinding img and setting src is necessary
+	}
+
+	function eventSignalDownload(event) {
+		var elem = this.getChunk(event.X, event.Y);
+		if (elem == null) {
+			return;
+		}
+		// TODO: Show downloading chunks
+
 	}
 
 	function eventChunksChange(event) {
@@ -81,17 +116,36 @@ class PixCanvas : Behavior {
 				width: rect.Max.X-rect.Min.X,
 				height: rect.Max.Y-rect.Min.Y,
 				left: rect.Min.X + this.canvasCenterX,
-				top: rect.Min.Y + this.canvasCenterY
+				top: rect.Min.Y + this.canvasCenterY,
+				background-color: "red"
 			});
 			imgElement.MinX = rect.Min.X;
 			imgElement.MinY = rect.Min.Y;
+			imgElement.MaxX = rect.Max.X;
+			imgElement.MaxY = rect.Max.Y;
 		}
 	}
 
 	function eventHandler(e) {
 		switch (e.Type) {
+			case "InvalidateAll": {
+				this.eventInvalidateAll(e);
+				break;
+			}
+			case "InvalidateRect": {
+				this.eventInvalidateRect(e);
+				break;
+			}
 			case "SetImage": {
 				this.eventSetImage(e);
+				break;
+			}
+			case "SetPixel": {
+				this.eventSetPixel(e);
+				break;
+			}
+			case "SignalDownload": {
+				this.eventSignalDownload(e);
 				break;
 			}
 			case "ChunksChange": {
