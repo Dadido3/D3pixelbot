@@ -242,7 +242,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 							if err == nil {
 								// Existing chunk with valid data, simulate download process to that specific listener
 								event.Listener.handleSignalDownload(rect)
-								event.Listener.handleSetImage(img)
+								event.Listener.handleSetImage(img) // TODO: Don't call that handler several times, especially sciter is slow in this case
 							}
 							// TODO: Send invalid chunks somehow. Maybe with a new handler
 						}
@@ -294,7 +294,7 @@ func (can *canvas) unsubscribeListener(l canvasListener) error {
 	return nil
 }
 
-// Register a number of rectangles that the listeners wants to be kept up to date.
+// Register a number of rectangles that the listener needs to be kept up to date with.
 // If forwardAll is true, any event is forwarded to the listener, even if it is outside the given rectangles.
 //
 // This function will not fail if the listener isn't subscribed.

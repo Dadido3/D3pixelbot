@@ -42,15 +42,15 @@ class PixCanvas : Behavior {
 
 	function eventSetImage(event) {
 		var (x, y) = (event.X, event.Y);
+		var (width, height) = (event.Width, event.Height)
 
 		var imgElement = this.getChunk(x, y);
 		if (imgElement == null) {
 			return;
 		}
 
-		var (width, height) = (event.Width, event.Height)
 		function imagePainter(img) {
-			var array = Bytes.fromString(event.Array);
+			var array = event.Array;
 			var stride = width * 4;
 			for (var iy = 0; iy < height; iy++) {
 				for (var ix = 0; ix < width; ix++) {

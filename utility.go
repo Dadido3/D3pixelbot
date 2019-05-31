@@ -127,22 +127,30 @@ func copyImage(img image.Image) (image.Image, error) {
 // Converts any image to an RGBA array
 func imageToRGBAArray(img image.Image) []byte {
 	rect := img.Bounds()
-	array := make([]byte, rect.Dx()*rect.Dy()*4)
 
-	i := 0
-	for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
-		for ix := rect.Min.X; ix < rect.Max.X; ix++ {
-			r, g, b, a := img.At(ix, iy).RGBA()
-			array[i] = byte(r)
-			i++
-			array[i] = byte(g)
-			i++
-			array[i] = byte(b)
-			i++
-			array[i] = byte(a)
-			i++
+	switch img := img.(type) {
+	case *image.RGBA:
+		// Assumes that the stride == width * 4
+		return img.Pix
+	default:
+		array := make([]byte, rect.Dx()*rect.Dy()*4)
+
+		i := 0
+		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
+			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
+				r, g, b, a := img.At(ix, iy).RGBA()
+				array[i] = byte(r)
+				i++
+				array[i] = byte(g)
+				i++
+				array[i] = byte(b)
+				i++
+				array[i] = byte(a)
+				i++
+			}
 		}
+
+		return array
 	}
 
-	return array
 }
