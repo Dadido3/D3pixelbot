@@ -1,8 +1,9 @@
-<html window-frame="solid-with-shadow" window-blurbehind="auto" theme="dark" window-resizable window-frame="none">
+<html window-frame="solid-with-shadow" window-blurbehind="dark" theme="dark" window-resizable window-frame="none">
 	<head>
 		<title>D3pixelbot canvas viewer</title>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 		<style>
+			@import url("styles/flat-theme.css");
 			@import url("prototypes/pixcanvas/pixcanvas.css");
 			
             html {
@@ -19,6 +20,13 @@
 				padding: 2em;
 			}
 
+			#sidebar > span {
+				font-size: 1.5em;
+			}
+
+			.table { flow: row(label, select input div textarea button); border-spacing: 6dip;}
+			.table > label { padding:4dip; white-space:nowrap; horizontal-align:right; }
+
 			pixcanvas {
 				background-color: rgba(0, 0, 0, 0.247);
 				width: *;
@@ -33,7 +41,9 @@
 				pc.scrollTo(pc.canvasCenterX, pc.canvasCenterY, false, true);
 
 				//pc.eventHandler({Type: "SetImage", X: 200, Y: 200, Width: 64, Height: 64});
-				var err = view.setEventHandler(pc, pc.eventHandler);
+				//if (view.setEventHandler != null) {
+					var err = view.setEventHandler(pc, pc.eventHandler);
+				//}
 			}
 
 			function self.ready() {
@@ -46,13 +56,18 @@
 	<body>
 		
 		<div #sidebar>
-			<label>Test</label>
-			<output|text(first)/>
+			<span>Test</span>
+			<form#data>
+				<label>Players: </label>
+				<output|Integer(playerCount)/>
+				<label>Players: </label>
+				<output|Integer(playerCount)/>
+			</form>
 		</div>
 		
 		<pixcanvas>
 			<div>
-				<!--<img style="width:128px; height:64px; top: 1000000px; left: 1000001px; background-color:beige">-->
+				<!--<img style="width:128px; height:64px; top: 1000000px; left: 1000001px;">-->
 			</div>
 		</pixcanvas>
 		

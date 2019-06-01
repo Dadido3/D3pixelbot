@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -63,6 +64,7 @@ func sciterOpenCanvas(con connection, can *canvas) {
 		log.Errorf("Failed to set sciter debug mode")
 	}
 
+	// TODO: Subscribe and unsubscribe instead of setEventHandler, so it can gracefully unsubscribe when the window is closed
 	w.DefineFunction("setEventHandler", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 2 {
 			return sciter.NewValue("Wrong number of parameters")
@@ -93,7 +95,7 @@ func sciterOpenCanvas(con connection, can *canvas) {
 				}
 				events = append(events, event)
 			batchLoop:
-				for i := 1; i < 10; i++ { // Limit batch size to 10
+				for i := 1; i < 50; i++ { // Limit batch size to 50
 					select {
 					case event, ok := <-sca.handlerChan:
 						if ok {
@@ -160,7 +162,9 @@ func sciterOpenCanvas(con connection, can *canvas) {
 
 	can.unsubscribeListener(sca)
 
-	close(sca.handlerChan)
+	if sca.handlerChan != nil {
+		close(sca.handlerChan)
+	}
 }
 
 func (s *sciterCanvas) handleInvalidateAll() error {
@@ -186,6 +190,12 @@ func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
 }
 
 func (s *sciterCanvas) handleSetImage(img image.Image) error {
+	imageArray := imageToBGRAArray(img)
+	headerArray := [12]byte{'B', 'G', 'R', 'A'}
+	binary.BigEndian.PutUint32(headerArray[4:8], uint32(img.Bounds().Dx()))
+	binary.BigEndian.PutUint32(headerArray[8:12], uint32(img.Bounds().Dy()))
+	array := append(headerArray[:], imageArray...)
+
 	val := sciter.NewValue()
 	val.Set("Type", "SetImage")
 	val.Set("X", img.Bounds().Min.X)
@@ -194,7 +204,7 @@ func (s *sciterCanvas) handleSetImage(img image.Image) error {
 	val.Set("Height", img.Bounds().Dy())
 	valArray := sciter.NewValue()
 	defer valArray.Release()
-	valArray.SetBytes(imageToRGBAArray(img))
+	valArray.SetBytes(array)
 	val.Set("Array", valArray)
 
 	s.handlerChan <- val

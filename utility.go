@@ -154,3 +154,57 @@ func imageToRGBAArray(img image.Image) []byte {
 	}
 
 }
+
+// Converts any image to an RGB array
+func imageToRGBArray(img image.Image) []byte {
+	rect := img.Bounds()
+
+	switch img := img.(type) {
+	default:
+		array := make([]byte, rect.Dx()*rect.Dy()*3)
+
+		i := 0
+		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
+			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
+				r, g, b, _ := img.At(ix, iy).RGBA()
+				array[i] = byte(r)
+				i++
+				array[i] = byte(g)
+				i++
+				array[i] = byte(b)
+				i++
+			}
+		}
+
+		return array
+	}
+
+}
+
+// Converts any image to an BGRA array
+func imageToBGRAArray(img image.Image) []byte {
+	rect := img.Bounds()
+
+	switch img := img.(type) {
+	default:
+		array := make([]byte, rect.Dx()*rect.Dy()*4)
+
+		i := 0
+		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
+			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
+				r, g, b, a := img.At(ix, iy).RGBA()
+				array[i] = byte(b)
+				i++
+				array[i] = byte(g)
+				i++
+				array[i] = byte(r)
+				i++
+				array[i] = byte(a)
+				i++
+			}
+		}
+
+		return array
+	}
+
+}

@@ -1,6 +1,7 @@
 {
     "go.formatTool": "goimports",
     "cSpell.words": [
+        "BGRA",
         "Debugf",
         "Infof",
         "Lanczos",

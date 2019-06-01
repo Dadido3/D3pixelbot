@@ -41,7 +41,9 @@ class PixCanvas : Behavior {
 				Min: {X: left, Y: top},
 				Max: {X: left+width, Y: top+height}
 			}];
-			view.registerRects(rects);
+			//if (view.registerRects != nil) {
+				view.registerRects(rects);
+			//}
 		};
 		this.onSize = function() {this.sendRects(null);};
 		this.on("scroll", this.sendRects);
@@ -79,28 +81,13 @@ class PixCanvas : Behavior {
 
 	function eventSetImage(event) {
 		var (x, y) = (event.X, event.Y);
-		var (width, height) = (event.Width, event.Height)
 
 		var elem = this.getChunk(x, y);
 		if (elem == null) {
 			return;
 		}
 
-		function imagePainter(img) {
-			var array = event.Array;
-			var stride = width * 4;
-			for (var iy = 0; iy < height; iy++) {
-				for (var ix = 0; ix < width; ix++) {
-					var offset = ix * 4 + iy*stride;
-					var color = Graphics.RGBA(array[offset], array[offset + 1], array[offset + 2], array[offset + 3]);
-					img.colorAt(ix, iy, color); // TODO: Replace colorAt, convert image in go if possible
-				}
-			}
-		}
-		var img = new Image(width, height, Graphics.RGBA("white"), function(gfx) {});
-		if (event.Array) {
-			imagePainter(img);
-		}
+		var img = Image.fromBytes(event.Array);
 		elem.bindImage("in-memory:chunk:"+x+":"+y, img);
 		elem.attributes["src"] = "in-memory:chunk:"+x+":"+y;
 		elem.img = img;
@@ -124,7 +111,7 @@ class PixCanvas : Behavior {
 			return;
 		}
 		// TODO: Show downloading chunks
-
+		//elem.style#display = "none";
 	}
 
 	function eventChunksChange(event) {
@@ -139,8 +126,7 @@ class PixCanvas : Behavior {
 				width: rect.Max.X-rect.Min.X,
 				height: rect.Max.Y-rect.Min.Y,
 				left: rect.Min.X + this.canvasCenterX,
-				top: rect.Min.Y + this.canvasCenterY,
-				background-color: "red"
+				top: rect.Min.Y + this.canvasCenterY
 			});
 			imgElement.MinX = rect.Min.X;
 			imgElement.MinY = rect.Min.Y;

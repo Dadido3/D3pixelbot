@@ -278,7 +278,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 							if err == nil {
 								// Existing chunk with valid data, simulate download process to that specific listener
 								event.Listener.handleSignalDownload(rect)
-								event.Listener.handleSetImage(img) // TODO: Don't call that handler several times, especially sciter is slow in this case
+								event.Listener.handleSetImage(img)
 							}
 							// TODO: Send invalid chunks somehow. Maybe with a new handler
 						}

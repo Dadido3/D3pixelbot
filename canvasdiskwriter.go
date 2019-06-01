@@ -214,14 +214,14 @@ func (cdw *canvasDiskWriter) handleSetImage(img image.Image) error {
 	}
 
 	bounds := img.Bounds()
-	arrayRGBA := imageToRGBAArray(img)
+	arrayRGB := imageToRGBArray(img)
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType      uint8
 		Time          int64
 		X, Y          int32
 		Width, Height uint16
-		Size          uint32 // Size of the RGBA data in bytes // TODO: Reduce the image data to just RGB
+		Size          uint32 // Size of the RGB data in bytes
 	}{
 		DataType: 30,
 		Time:     time.Now().UnixNano(),
@@ -229,12 +229,12 @@ func (cdw *canvasDiskWriter) handleSetImage(img image.Image) error {
 		Y:        int32(bounds.Min.Y),
 		Width:    uint16(bounds.Dx()),
 		Height:   uint16(bounds.Dy()),
-		Size:     uint32(len(arrayRGBA)),
+		Size:     uint32(len(arrayRGB)),
 	})
 	if err != nil {
 		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
 	}
-	err = binary.Write(cdw.ZipWriter, binary.LittleEndian, arrayRGBA)
+	err = binary.Write(cdw.ZipWriter, binary.LittleEndian, arrayRGB)
 	if err != nil {
 		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
 	}
