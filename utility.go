@@ -186,6 +186,14 @@ func imageToBGRAArray(img image.Image) []byte {
 	rect := img.Bounds()
 
 	switch img := img.(type) {
+	case *image.RGBA:
+		// Assumes that the stride == width * 4
+		array := make([]uint8, len(img.Pix))
+		copy(array, img.Pix)
+		for i := 0; i <= len(img.Pix)-4; i += 4 {
+			array[i], array[i+2] = array[i+2], array[i]
+		}
+		return array
 	default:
 		array := make([]byte, rect.Dx()*rect.Dy()*4)
 
