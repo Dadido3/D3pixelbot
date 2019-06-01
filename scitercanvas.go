@@ -32,8 +32,7 @@ type sciterCanvas struct {
 	connection connection
 	canvas     *canvas
 
-	object    *sciter.Value
-	cbHandler *sciter.Value // Event handler callback of the window
+	handlerChan chan *sciter.Value // Queue of event data, so the main logic doesn't stop while sciter is processing it
 }
 
 func sciterOpenCanvas(con connection, can *canvas) {
@@ -73,13 +72,46 @@ func sciterOpenCanvas(con connection, can *canvas) {
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
-		if sca.cbHandler != nil {
+		if sca.handlerChan != nil {
 			return sciter.NewValue("Callback already set")
 		}
 
-		sca.object = obj
-		sca.cbHandler = cbHandler
+		sca.handlerChan = make(chan *sciter.Value, 100)
 		can.subscribeListener(sca)
+
+		go func() {
+			for {
+
+				// Batch read from channel, or return if the channel got closed
+				events := []*sciter.Value{}
+				event, ok := <-sca.handlerChan
+				if !ok {
+					// Channel closed, so just close goroutine
+					return
+				}
+				events = append(events, event)
+			batchLoop:
+				for i := 1; i < 10; i++ { // Limit batch size to 10
+					select {
+					case event, ok := <-sca.handlerChan:
+						if ok {
+							events = append(events, event)
+						}
+					default:
+						break batchLoop
+					}
+				}
+
+				// TODO: Batch events
+				val := sciter.NewValue()
+				for _, event := range events {
+					val.Append(event)
+					//event.Release() // TODO: Check if the events need to be released later
+				}
+				cbHandler.Invoke(obj, "[Native Script]", val)
+				val.Release()
+			}
+		}()
 
 		return nil
 	})
@@ -124,46 +156,47 @@ func sciterOpenCanvas(con connection, can *canvas) {
 
 	w.Show()
 	w.Run()
+
+	can.unsubscribeListener(sca)
+
+	close(sca.handlerChan)
 }
 
 func (s *sciterCanvas) handleInvalidateAll() error {
 	val := sciter.NewValue()
-	defer val.Release()
 	val.Set("Type", "InvalidateAll")
 
-	s.cbHandler.Invoke(s.object, "[Native Script]", val)
+	s.handlerChan <- val
 
 	return nil
 }
 
 func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
 	val := sciter.NewValue()
-	defer val.Release()
 	val.Set("Type", "InvalidateRect")
 	val.Set("X", rect.Min.X)
 	val.Set("Y", rect.Min.Y)
 	val.Set("Width", rect.Dx())
 	val.Set("Height", rect.Dy())
 
-	s.cbHandler.Invoke(s.object, "[Native Script]", val)
+	s.handlerChan <- val
 
 	return nil
 }
 
 func (s *sciterCanvas) handleSetImage(img image.Image) error {
 	val := sciter.NewValue()
-	defer val.Release()
 	val.Set("Type", "SetImage")
 	val.Set("X", img.Bounds().Min.X)
 	val.Set("Y", img.Bounds().Min.Y)
 	val.Set("Width", img.Bounds().Dx())
 	val.Set("Height", img.Bounds().Dy())
 	valArray := sciter.NewValue()
-	defer valArray.Release()
+	//defer valArray.Release() // TODO: Check if this can or should be released!
 	valArray.SetBytes(imageToRGBAArray(img))
 	val.Set("Array", valArray)
 
-	s.cbHandler.Invoke(s.object, "[Native Script]", val)
+	s.handlerChan <- val
 
 	return nil
 }
@@ -172,7 +205,6 @@ func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color) error 
 	r, g, b, a := color.RGBA()
 
 	val := sciter.NewValue()
-	defer val.Release()
 	val.Set("Type", "SetPixel")
 	val.Set("X", pos.X)
 	val.Set("Y", pos.Y)
@@ -181,21 +213,20 @@ func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color) error 
 	val.Set("B", b)
 	val.Set("A", a)
 
-	s.cbHandler.Invoke(s.object, "[Native Script]", val)
+	s.handlerChan <- val
 
 	return nil
 }
 
 func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle) error {
 	val := sciter.NewValue()
-	defer val.Release()
 	val.Set("Type", "SignalDownload")
 	val.Set("X", rect.Min.X)
 	val.Set("Y", rect.Min.Y)
 	val.Set("Width", rect.Dx())
 	val.Set("Height", rect.Dy())
 
-	s.cbHandler.Invoke(s.object, "[Native Script]", val)
+	s.handlerChan <- val
 
 	return nil
 }
@@ -213,10 +244,9 @@ func (s *sciterCanvas) handleChunksChange(create, remove []image.Rectangle) erro
 
 	b, err := json.Marshal(jsonData)
 	if err == nil {
-		val := sciter.NullValue()
-		defer val.Release()
+		val := sciter.NewValue()
 		val.ConvertFromString(string(b), sciter.CVT_JSON_LITERAL)
-		s.cbHandler.Invoke(s.object, "[Native Script]", val)
+		s.handlerChan <- val
 	}
 
 	return nil

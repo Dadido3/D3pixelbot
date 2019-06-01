@@ -23,7 +23,6 @@ class PixCanvas : Behavior {
 
 		this.on("mousemove", function(evt) {
 			if (this.scrolling) {
-				debug: evt.x;
 				var (dx, dy) = (evt.x - this.scrollingX, evt.y - this.scrollingY);
 				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy);
 				this.scrollingX = evt.x;
@@ -32,7 +31,7 @@ class PixCanvas : Behavior {
 		});
 
 		// TODO: Only call registerRects, if the rects have changed
-		this.timer(1s, function() {
+		this.timer(0.3s, function() {
 			var left = this.scroll(#left);
 			var top = this.scroll(#top);
 			var width = this.scroll(#width);
@@ -152,31 +151,33 @@ class PixCanvas : Behavior {
 		}
 	}
 
-	function eventHandler(e) {
-		switch (e.Type) {
-			case "InvalidateAll": {
-				this.eventInvalidateAll(e);
-				break;
-			}
-			case "InvalidateRect": {
-				this.eventInvalidateRect(e);
-				break;
-			}
-			case "SetImage": {
-				this.eventSetImage(e);
-				break;
-			}
-			case "SetPixel": {
-				this.eventSetPixel(e);
-				break;
-			}
-			case "SignalDownload": {
-				this.eventSignalDownload(e);
-				break;
-			}
-			case "ChunksChange": {
-				this.eventChunksChange(e);
-				break;
+	function eventHandler(events) {
+		for (var e in events) {
+			switch (e.Type) {
+				case "InvalidateAll": {
+					this.eventInvalidateAll(e);
+					break;
+				}
+				case "InvalidateRect": {
+					this.eventInvalidateRect(e);
+					break;
+				}
+				case "SetImage": {
+					this.eventSetImage(e);
+					break;
+				}
+				case "SetPixel": {
+					this.eventSetPixel(e);
+					break;
+				}
+				case "SignalDownload": {
+					this.eventSignalDownload(e);
+					break;
+				}
+				case "ChunksChange": {
+					this.eventChunksChange(e);
+					break;
+				}
 			}
 		}
 	}
