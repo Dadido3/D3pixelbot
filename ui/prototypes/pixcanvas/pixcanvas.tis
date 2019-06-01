@@ -27,26 +27,24 @@ class PixCanvas : Behavior {
 				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy);
 				this.scrollingX = evt.x;
 				this.scrollingY = evt.y;
+				this.sendRects(null);
 			}
 		});
 
-		// TODO: Only call registerRects, if the rects have changed
-		this.timer(0.3s, function() {
-			var left = this.scroll(#left);
-			var top = this.scroll(#top);
+		this.sendRects = function(dummy) { 
+			var left = this.scroll(#left) - this.canvasCenterX;
+			var top = this.scroll(#top) - this.canvasCenterY;
 			var width = this.scroll(#width);
 			var height = this.scroll(#height);
-
-			left = left - this.canvasCenterX;
-			top = top - this.canvasCenterY;
-
+			
 			var rects = [{
 				Min: {X: left, Y: top},
 				Max: {X: left+width, Y: top+height}
 			}];
 			view.registerRects(rects);
-			return true; // keep timer running
-		});
+		};
+		this.onSize = function() {this.sendRects(null);};
+		this.on("scroll", this.sendRects);
 
 		this.$(> div).style.set({
 			width: this.canvasWidth,

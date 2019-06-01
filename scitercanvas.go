@@ -77,11 +77,13 @@ func sciterOpenCanvas(con connection, can *canvas) {
 		}
 
 		sca.handlerChan = make(chan *sciter.Value, 100)
-		can.subscribeListener(sca)
+		err := can.subscribeListener(sca)
+		if err != nil {
+			return sciter.NewValue("Can't subscribe to canvas: " + err.Error())
+		}
 
 		go func() {
 			for {
-
 				// Batch read from channel, or return if the channel got closed
 				events := []*sciter.Value{}
 				event, ok := <-sca.handlerChan
@@ -102,11 +104,10 @@ func sciterOpenCanvas(con connection, can *canvas) {
 					}
 				}
 
-				// TODO: Batch events
 				val := sciter.NewValue()
 				for _, event := range events {
 					val.Append(event)
-					//event.Release() // TODO: Check if the events need to be released later
+					event.Release()
 				}
 				cbHandler.Invoke(obj, "[Native Script]", val)
 				val.Release()
@@ -192,7 +193,7 @@ func (s *sciterCanvas) handleSetImage(img image.Image) error {
 	val.Set("Width", img.Bounds().Dx())
 	val.Set("Height", img.Bounds().Dy())
 	valArray := sciter.NewValue()
-	//defer valArray.Release() // TODO: Check if this can or should be released!
+	defer valArray.Release()
 	valArray.SetBytes(imageToRGBAArray(img))
 	val.Set("Array", valArray)
 
