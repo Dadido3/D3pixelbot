@@ -45,7 +45,7 @@ func sciterOpenCanvas(con connection, can *canvas) {
 	sciter.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
 	sciter.SetOption(sciter.SCITER_SET_SCRIPT_RUNTIME_FEATURES, sciter.ALLOW_FILE_IO|sciter.ALLOW_SOCKET_IO|sciter.ALLOW_EVAL|sciter.ALLOW_SYSINFO) // Needed for the inspector to work!
 
-	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG /*|sciter.SW_GLASSY*/, sciter.DefaultRect)
+	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG|sciter.SW_GLASSY, sciter.DefaultRect)
 	if err != nil {
 		log.Fatal(err)
 	}

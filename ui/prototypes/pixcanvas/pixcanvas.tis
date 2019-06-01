@@ -5,6 +5,32 @@ class PixCanvas : Behavior {
 		this.canvasCenterX = 1000000; // Offset to the center coordinate, as the container can't be moved
 		this.canvasCenterY = 1000000;
 
+		this.on("mousedown", function(evt) {
+			if (evt.buttons == 0x04) { // Middle mouse button
+				this.scrolling = true;
+				this.scrollingX = evt.x;
+				this.scrollingY = evt.y;
+				this.capture(#strict);
+			}
+		});
+
+		this.on("mouseup", function(evt) {
+			if (evt.buttons == 0x04) { // Middle mouse button
+				this.scrolling = false;
+				this.capture(false);
+			}
+		});
+
+		this.on("mousemove", function(evt) {
+			if (this.scrolling) {
+				debug: evt.x;
+				var (dx, dy) = (evt.x - this.scrollingX, evt.y - this.scrollingY);
+				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy);
+				this.scrollingX = evt.x;
+				this.scrollingY = evt.y;
+			}
+		});
+
 		// TODO: Only call registerRects, if the rects have changed
 		this.timer(1s, function() {
 			var left = this.scroll(#left);
