@@ -25,7 +25,7 @@ type connectionType struct {
 	Name      string // Shown in UI
 	ShortName string // Used in filesystem and internally
 
-	FunctionNew func(createCanvas bool) (connection, *canvas, error)
+	FunctionNew func() (connection, *canvas)
 }
 
 var connectionTypes map[string]connectionType

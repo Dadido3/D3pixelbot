@@ -43,10 +43,7 @@ func saveCanvasImage(can *canvas, rect image.Rectangle, filename string) error {
 }
 
 func Test_newPixelcanvasio(t *testing.T) {
-	con, can, err := newPixelcanvasio(true)
-	if err != nil {
-		t.Errorf("Can't create pixelcanvas connection: %v", err)
-	}
+	con, can := newPixelcanvasio()
 	defer con.Close()
 
 	cdw, err := can.newCanvasDiskWriter("pixelcanvas.io")

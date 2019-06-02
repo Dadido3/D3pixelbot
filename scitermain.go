@@ -48,10 +48,7 @@ func sciterOpenMain() {
 			return sciter.NewValue(fmt.Sprintf("game %v not found", game))
 		}
 
-		con, can, err := connectionType.FunctionNew(true)
-		if err != nil {
-			return sciter.NewValue(fmt.Sprintf("Couldn't create connection: %v", err))
-		}
+		con, can := connectionType.FunctionNew()
 
 		go func() {
 			defer con.Close()

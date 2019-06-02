@@ -97,7 +97,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 		ChunkSize:        chunkSize,
 		Palette:          palette,
 		EventChan:        make(chan interface{}), // TODO: Determine optimal chan size (Add waitGroup when channel buffering is enabled!)
-		ChunkRequestChan: make(chan *chunk),
+		ChunkRequestChan: make(chan *chunk, 5),
 	}
 
 	handleChunk := func(chunk *chunk, resetTime bool) {
@@ -107,7 +107,10 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 			delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min))
 			can.Unlock()
 		case chunkDownload:
-			can.ChunkRequestChan <- chunk
+			select {
+			case can.ChunkRequestChan <- chunk: // Try to send a chunk request to the connection. If it fails --> bleh, retry next time
+			default:
+			}
 		}
 	}
 
