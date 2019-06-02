@@ -50,20 +50,6 @@ func sciterOpenCanvas(con connection, can *canvas) {
 		log.Fatal(err)
 	}
 
-	path, err := filepath.Abs("ui/canvas.htm")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := w.LoadFile("file://" + path); err != nil {
-		log.Fatal(err)
-	}
-
-	ok := w.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
-	if !ok {
-		log.Errorf("Failed to set sciter debug mode")
-	}
-
 	// TODO: Subscribe and unsubscribe instead of setEventHandler, so it can gracefully unsubscribe when the window is closed
 	w.DefineFunction("setEventHandler", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 2 {
@@ -156,6 +142,20 @@ func sciterOpenCanvas(con connection, can *canvas) {
 
 		return nil
 	})
+
+	path, err := filepath.Abs("ui/canvas.htm")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := w.LoadFile("file://" + path); err != nil {
+		log.Fatal(err)
+	}
+
+	ok := w.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
+	if !ok {
+		log.Errorf("Failed to set sciter debug mode")
+	}
 
 	w.Show()
 	w.Run()

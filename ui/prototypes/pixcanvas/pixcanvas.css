@@ -3,12 +3,18 @@ pixcanvas {
 	display: block;
 
 	overflow: scroll-indicator;
+	/*overflow: hidden-scroll;*/
 }
 
-pixcanvas > div {
-	position:relative;
+pixcanvas .canvasContainer {
+	position: relative;
 }
 
-pixcanvas > div > img {
-	position:absolute;
+pixcanvas .chunkContainer {
+	position: absolute;
+}
+
+pixcanvas .chunkContainer > img {
+	position: absolute;
+	image-rendering: pixelated;
 }

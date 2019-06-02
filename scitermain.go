@@ -33,20 +33,6 @@ func sciterOpenMain() {
 		log.Fatal(err)
 	}
 
-	path, err := filepath.Abs("ui/main.htm")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := w.LoadFile("file://" + path); err != nil {
-		log.Fatal(err)
-	}
-
-	ok := w.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
-	if !ok {
-		log.Errorf("Failed to set sciter debug mode")
-	}
-
 	w.DefineFunction("openLocal", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
 			return sciter.NewValue("Wrong number of parameters")
@@ -76,6 +62,20 @@ func sciterOpenMain() {
 
 		return nil
 	})
+
+	path, err := filepath.Abs("ui/main.htm")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := w.LoadFile("file://" + path); err != nil {
+		log.Fatal(err)
+	}
+
+	ok := w.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
+	if !ok {
+		log.Errorf("Failed to set sciter debug mode")
+	}
 
 	w.Show()
 	w.Run()

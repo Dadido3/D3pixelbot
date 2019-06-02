@@ -1,9 +1,10 @@
 class PixCanvas : Behavior {
 	function attached() {
-		this.canvasWidth = 1999999;
-		this.canvasHeight = 1999999; // TODO: Get correct values from the canvas instance
-		this.canvasCenterX = 1000000; // Offset to the center coordinate, as the container can't be moved
-		this.canvasCenterY = 1000000;
+		this.canvasWidth = 10000;
+		this.canvasHeight = 10000;
+		this.canvasCenterX = 0; // Offset to the center coordinate, as the container element can't be moved
+		this.canvasCenterY = 0;
+		this.zoom = 1.0;
 
 		this.on("mousedown", function(evt) {
 			if (evt.buttons == 0x04) { // Middle mouse button
@@ -24,7 +25,7 @@ class PixCanvas : Behavior {
 		this.on("mousemove", function(evt) {
 			if (this.scrolling) {
 				var (dx, dy) = (evt.x - this.scrollingX, evt.y - this.scrollingY);
-				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy);
+				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy, false, true);
 				this.scrollingX = evt.x;
 				this.scrollingY = evt.y;
 				this.sendRects(null);
@@ -32,32 +33,103 @@ class PixCanvas : Behavior {
 		});
 
 		this.sendRects = function(dummy) { 
-			var left = this.scroll(#left) - this.canvasCenterX;
-			var top = this.scroll(#top) - this.canvasCenterY;
-			var width = this.scroll(#width);
-			var height = this.scroll(#height);
+			var left = this.scroll(#left)/this.zoom - this.canvasCenterX;
+			var top = this.scroll(#top)/this.zoom - this.canvasCenterY;
+			var width = this.scroll(#width)/this.zoom;
+			var height = this.scroll(#height)/this.zoom;
 			
 			var rects = [{
-				Min: {X: left, Y: top},
-				Max: {X: left+width, Y: top+height}
+				Min: {X: left.toInteger(), Y: top.toInteger()},
+				Max: {X: (left+width).toInteger(), Y: (top+height).toInteger()}
 			}];
-			//if (view.registerRects != nil) {
-				view.registerRects(rects);
-			//}
+			
+			view.registerRects(rects);
 		};
 		this.onSize = function() {this.sendRects(null);};
 		this.on("scroll", this.sendRects);
 
-		this.$(> div).style.set({
-			width: this.canvasWidth,
-			height: this.canvasHeight 
+		this.$(.canvasContainer).style.set({
+			width: this.canvasWidth * this.zoom,
+			height: this.canvasHeight * this.zoom
 		});
 
-		//this.scrollTo(this.canvasCenterX, this.canvasCenterY, false, true);
+		this.timer(1s, function(){
+			// TODO: Only recenter if the scrollbar isn't clicked and if scrolling isn't animated
+			this.recenterScrolling();
+			return true;
+		});
+
+		//pc.eventHandler([{Type: "ChunksChange", Remove: [], Create: [{Min: {X: 128, Y: 64},Max: {X: 128+64, Y: 64+64}}]}]);
+		//var img = new Image(64, 64, Graphics.RGBA("red"), function(gfx) {});
+		//pc.eventHandler([{Type: "SetImage", X: 128, Y: 64, Width: 64, Height: 64, Array: img.toBytes()}]);
+		var err = view.setEventHandler(pc, pc.eventHandler);
+
+		this.setZoom(0);
+	}
+
+	function setZoom(zoomLevel) {
+		var left = (this.scroll(#left) + this.scroll(#width) / 2) / this.zoom;
+		var top = (this.scroll(#top) + this.scroll(#height) / 2) / this.zoom;
+
+		this.zoom = Math.pow(2, zoomLevel);
+
+		this.$(.canvasContainer).style.set {
+			width: this.canvasWidth * this.zoom,
+			height: this.canvasHeight * this.zoom
+		};
+
+		this.$(.canvasContainer>div).style.set({
+			transform: [scale: this.zoom],
+		});
+
+		/*for (var elem in this.$(.chunkContainer)) {
+			elem.style.set({
+				width: elem.MaxX - elem.MinX,
+				height: elem.MaxY - elem.MinY,
+				left: elem.MinX + this.canvasCenterX * this.zoom,
+				top: elem.MinY + this.canvasCenterY * this.zoom
+				//transform: translate((elem.MinX + this.canvasCenterX) * this.zoom, (elem.MinY + this.canvasCenterY) * this.zoom)
+			});
+		}*/
+
+		// TODO: Fix vertical stripes on positive zoom
+
+		this.scrollTo((left * this.zoom - this.scroll(#width) / 2).toInteger(), (top * this.zoom - this.scroll(#height) / 2).toInteger(), false, true);
+
+		this.sendRects(null);
+	}
+
+	function recenterScrolling() {
+		var dx = (this.scroll(#left) - this.scroll(#right)) / 2;
+		var dy = (this.scroll(#top) - this.scroll(#bottom)) / 2;
+
+		if (this.zoom > 1) {
+			dx = dx / this.zoom.toInteger() * this.zoom.toInteger();
+			dy = dy / this.zoom.toInteger() * this.zoom.toInteger();
+		}
+
+		if (dx == 0 && dy == 0) {
+			return;
+		}
+
+		this.canvasCenterX -= (dx / this.zoom).toInteger();
+		this.canvasCenterY -= (dy / this.zoom).toInteger();
+
+		for (var elem in this.$(.chunkContainer)) {
+			elem.style.set({
+				width: elem.MaxX - elem.MinX,
+				height: elem.MaxY - elem.MinY,
+				left: elem.MinX + this.canvasCenterX,
+				top: elem.MinY + this.canvasCenterY
+			});
+		}
+
+		this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy, false, true);
 	}
 
 	function getChunk(x, y) { // TODO: Create function that returns chunks intersecting with a given rectangle
-		for (var elem in this.$(>div)) {
+		// TODO: Use map to lookup chunks
+		for (var elem in this.$(.chunkContainer)) {
 			if (x >= elem.MinX && y >= elem.MinY && x < elem.MaxX && y < elem.MaxY) {
 				return elem;
 			}
@@ -66,7 +138,7 @@ class PixCanvas : Behavior {
 	}
 
 	function eventInvalidateAll(event) {
-		for (var elem in this.$(>div)) {
+		for (var elem in this.$(.chunkContainer)) {
 			// TODO: Show invalid chunks
 		}
 	}
@@ -121,12 +193,13 @@ class PixCanvas : Behavior {
 
 		for (var rect in event.Create) {
         	var imgElement = new Element("img");
-			this.$(>div).append(imgElement);
+			this.$(.chunkContainer).append(imgElement);
 			imgElement.style.set({
 				width: rect.Max.X-rect.Min.X,
 				height: rect.Max.Y-rect.Min.Y,
 				left: rect.Min.X + this.canvasCenterX,
 				top: rect.Min.Y + this.canvasCenterY
+				//transform: translate(rect.Min.X + this.canvasCenterX, rect.Min.Y + this.canvasCenterY)
 			});
 			imgElement.MinX = rect.Min.X;
 			imgElement.MinY = rect.Min.Y;
@@ -164,26 +237,5 @@ class PixCanvas : Behavior {
 				}
 			}
 		}
-	}
-
-	function draw(gfx) {
-		var (viewOffsetX, viewOffsetY, viewZoom) = (this.viewOffsetX, this.viewOffsetY, this.viewZoom);
-		
-		var (left, top, right, bottom) = this.scroll(#rect);
-		debug : top;
-		gfx.save();
-		//gfx.translate(0.5, 0.5);
-		gfx.pushLayer(#inner-box);
-		
-		//gfx.lineCap = Graphics.CAP_ROUND;
-		//gfx.lineWidth(1);
-		//gfx.lineColor(color(0, 0, 0));
-
-		for(var chunk in this.chunks) {
-        	gfx.drawImage(chunk.img, chunk.x, chunk.y);
-		}
-
-		gfx.popLayer();
-		gfx.restore();
 	}
 }

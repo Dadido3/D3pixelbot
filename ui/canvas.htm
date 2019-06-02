@@ -24,8 +24,8 @@
 				font-size: 1.5em;
 			}
 
-			.table { flow: row(label, select input div textarea button); border-spacing: 6dip;}
-			.table > label { padding:4dip; white-space:nowrap; horizontal-align:right; }
+			form { flow: row(label, select input output div textarea button); border-spacing: 6dip;}
+			form > label { padding:4dip; white-space:nowrap; horizontal-align:right; }
 
 			pixcanvas {
 				background-color: rgba(0, 0, 0, 0.247);
@@ -35,39 +35,35 @@
 			
 		</style>
 		<script type="text/tiscript">
-			function canvasInit() {
-				var pc = $(pixcanvas);
+			var pc = $(pixcanvas);
 
-				pc.scrollTo(pc.canvasCenterX, pc.canvasCenterY, false, true);
-
-				//pc.eventHandler({Type: "SetImage", X: 200, Y: 200, Width: 64, Height: 64});
-				//if (view.setEventHandler != null) {
-					var err = view.setEventHandler(pc, pc.eventHandler);
-				//}
-			}
+			$(#zoom).on("change",function() {
+				pc.setZoom(this.value-2)
+			});
 
 			function self.ready() {
 				//view.connectToInspector();
-				self.post(canvasInit);
 			}
 		</script>
 	</head>
 	
 	<body>
 		
-		<div #sidebar>
-			<span>Test</span>
+		<div#sidebar>
+			<span>Canvas</span>
 			<form#data>
 				<label>Players: </label>
 				<output|Integer(playerCount)/>
-				<label>Players: </label>
-				<output|Integer(playerCount)/>
+				<label>Zoom:</label>
+				<input|hslider #zoom min=0 max=4 value=2 />
 			</form>
 		</div>
 		
 		<pixcanvas>
-			<div>
-				<!--<img style="width:128px; height:64px; top: 1000000px; left: 1000001px;">-->
+			<div.canvasContainer>
+				<div.chunkContainer>
+					<!--<img style="width:128px; height:64px; top: 1000000px; left: 1000000px; background-color: beige">-->
+				</div>
 			</div>
 		</pixcanvas>
 		
