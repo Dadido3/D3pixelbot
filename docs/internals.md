@@ -2,10 +2,12 @@
 
 ## Chunk download mechanism
 
-The chunk download mechanism is basing on frequent requests from listeners.
-Each request contains a rectangle that the canvas should try to keep in sync with the game.
+Each listener can register an unlimited amount of rectangles it wants to listen to.
+The canvas periodically queries the chunks based on the rectangles.
+Based on the result of each query something of the following will happen:
 
-Not queried chunks will get unloaded/deleted automatically after some time.
+- If the chunk is invalid, a download request will be sent to the game connection
+- If the chunk hasn't been queried in a while, it will be deleted (TODO: or compressed)
 
 While a chunk is downloading, all pixel events will be queued.
 After the chunk has been downloaded, all events will be replayed.

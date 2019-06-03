@@ -118,7 +118,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 
 	// Goroutine that handles chunk downloading (Queries the game connection for chunks)
 	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
+		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
 		for {
