@@ -20,6 +20,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sciter-sdk/go-sciter v0.5.0 h1:A0gESvTFZR/yMFkWnQ4tFVUdsSchuShNGr25QodE8gQ=
 github.com/sciter-sdk/go-sciter v0.5.0/go.mod h1:myhbEunWE4R+6J7GxJsr4SU4q0OIMOEbWFJ2qYzIdPc=
+github.com/sciter-sdk/go-sciter v0.5.1-0.20190523104704-16890f6f182b h1:/nTnSzdXyMl4jKDHw8+K/coLYpLCOqh08bjq2X15tV0=
+github.com/sciter-sdk/go-sciter v0.5.1-0.20190523104704-16890f6f182b/go.mod h1:myhbEunWE4R+6J7GxJsr4SU4q0OIMOEbWFJ2qYzIdPc=
 github.com/sirupsen/logrus v1.4.2 h1:SPIRibHv4MatM3XXNO2BJeFLZwZ2LvZgfQ5+UNI2im4=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

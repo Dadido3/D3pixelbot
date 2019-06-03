@@ -138,14 +138,14 @@ func imageToRGBAArray(img image.Image) []byte {
 		i := 0
 		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
 			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
-				r, g, b, a := img.At(ix, iy).RGBA()
-				array[i] = byte(r)
+				r, g, b, a := img.At(ix, iy).RGBA() // Returns 16 bit per channel
+				array[i] = byte(r >> 8)
 				i++
-				array[i] = byte(g)
+				array[i] = byte(g >> 8)
 				i++
-				array[i] = byte(b)
+				array[i] = byte(b >> 8)
 				i++
-				array[i] = byte(a)
+				array[i] = byte(a >> 8)
 				i++
 			}
 		}
@@ -166,12 +166,12 @@ func imageToRGBArray(img image.Image) []byte {
 		i := 0
 		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
 			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
-				r, g, b, _ := img.At(ix, iy).RGBA()
-				array[i] = byte(r)
+				r, g, b, _ := img.At(ix, iy).RGBA() // Returns 16 bit per channel
+				array[i] = byte(r >> 8)
 				i++
-				array[i] = byte(g)
+				array[i] = byte(g >> 8)
 				i++
-				array[i] = byte(b)
+				array[i] = byte(b >> 8)
 				i++
 			}
 		}
@@ -200,14 +200,14 @@ func imageToBGRAArray(img image.Image) []byte {
 		i := 0
 		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
 			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
-				r, g, b, a := img.At(ix, iy).RGBA()
-				array[i] = byte(b)
+				r, g, b, a := img.At(ix, iy).RGBA() // Returns 16 bit per channel
+				array[i] = byte(b >> 8)
 				i++
-				array[i] = byte(g)
+				array[i] = byte(g >> 8)
 				i++
-				array[i] = byte(r)
+				array[i] = byte(r >> 8)
 				i++
-				array[i] = byte(a)
+				array[i] = byte(a >> 8)
 				i++
 			}
 		}

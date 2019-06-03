@@ -23,6 +23,7 @@ import (
 	"image"
 	"image/color"
 	"path/filepath"
+	"sync"
 
 	"github.com/sciter-sdk/go-sciter"
 	"github.com/sciter-sdk/go-sciter/window"
@@ -34,24 +35,26 @@ type sciterCanvas struct {
 	canvas     *canvas
 
 	handlerChan chan *sciter.Value // Queue of event data, so the main logic doesn't stop while sciter is processing it
+	ClosedMutex sync.RWMutex
+	Closed      bool
 }
 
-func sciterOpenCanvas(con connection, can *canvas) {
+// Opens a new sciter canvas and attaches itself to the given connection and canvas
+//
+// ONLY CALL FROM MAIN THREAD!
+func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 	sca := &sciterCanvas{
 		connection: con,
 		canvas:     can,
+		Closed:     true,
 	}
 
-	sciter.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
-	sciter.SetOption(sciter.SCITER_SET_SCRIPT_RUNTIME_FEATURES, sciter.ALLOW_FILE_IO|sciter.ALLOW_SOCKET_IO|sciter.ALLOW_EVAL|sciter.ALLOW_SYSINFO) // Needed for the inspector to work!
-
-	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG|sciter.SW_GLASSY, sciter.DefaultRect)
+	w, err := window.New(sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_GLASSY|sciter.SW_ENABLE_DEBUG, sciter.NewRect(50, 300, 800, 500))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// TODO: Subscribe and unsubscribe instead of setEventHandler, so it can gracefully unsubscribe when the window is closed
-	w.DefineFunction("setEventHandler", func(args ...*sciter.Value) *sciter.Value {
+	w.DefineFunction("subscribeCanvasEvents", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 2 {
 			return sciter.NewValue("Wrong number of parameters")
 		}
@@ -60,21 +63,26 @@ func sciterOpenCanvas(con connection, can *canvas) {
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
+		sca.ClosedMutex.Lock()
+		defer sca.ClosedMutex.Unlock()
+
 		if sca.handlerChan != nil {
-			return sciter.NewValue("Callback already set")
+			return sciter.NewValue("Already subscribed")
 		}
 
-		sca.handlerChan = make(chan *sciter.Value, 100)
 		err := can.subscribeListener(sca)
 		if err != nil {
 			return sciter.NewValue("Can't subscribe to canvas: " + err.Error())
 		}
 
-		go func() {
+		sca.handlerChan = make(chan *sciter.Value, 100) // Can be after can.subscribeListener, as the ClosedMutex is still locked here
+		sca.Closed = false
+
+		go func(channel <-chan *sciter.Value) {
 			for {
 				// Batch read from channel, or return if the channel got closed
 				events := []*sciter.Value{}
-				event, ok := <-sca.handlerChan
+				event, ok := <-channel
 				if !ok {
 					// Channel closed, so just close goroutine
 					return
@@ -83,7 +91,7 @@ func sciterOpenCanvas(con connection, can *canvas) {
 			batchLoop:
 				for i := 1; i < 50; i++ { // Limit batch size to 50
 					select {
-					case event, ok := <-sca.handlerChan:
+					case event, ok := <-channel:
 						if ok {
 							events = append(events, event)
 						}
@@ -97,16 +105,42 @@ func sciterOpenCanvas(con connection, can *canvas) {
 					val.Append(event)
 					event.Release()
 				}
+				//log.Tracef("Invoke cbHandler with %v", val)
 				cbHandler.Invoke(obj, "[Native Script]", val)
+				//log.Tracef("Invoke cbHandler with %v done", val)
 				val.Release()
+				//log.Tracef("val released")
 			}
-		}()
+		}(sca.handlerChan)
+
+		return nil
+	})
+
+	w.DefineFunction("unsubscribeCanvasEvents", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 0 {
+			return sciter.NewValue("Wrong number of parameters")
+		}
+
+		sca.ClosedMutex.Lock()
+		defer sca.ClosedMutex.Unlock()
+
+		if sca.handlerChan == nil {
+			return sciter.NewValue("Not subscribed")
+		}
+
+		err := can.unsubscribeListener(sca)
+		if err != nil {
+			return sciter.NewValue("Can't subscribe to canvas: " + err.Error())
+		}
+
+		close(sca.handlerChan)
+		sca.handlerChan = nil // Goroutine has its own reference to this channel
+		sca.Closed = true
 
 		return nil
 	})
 
 	rectsChan := make(chan []image.Rectangle, 1)
-	defer close(rectsChan)
 	go func() {
 		for rects := range rectsChan {
 			can.registerRects(sca, rects, false)
@@ -143,6 +177,18 @@ func sciterOpenCanvas(con connection, can *canvas) {
 		return nil
 	})
 
+	closedChan = make(chan struct{}) // Signals that the window got closed
+	w.DefineFunction("signalClosed", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 0 {
+			return sciter.NewValue("Wrong number of parameters")
+		}
+
+		close(rectsChan)
+		close(closedChan)
+
+		return nil
+	})
+
 	path, err := filepath.Abs("ui/canvas.htm")
 	if err != nil {
 		log.Fatal(err)
@@ -152,22 +198,26 @@ func sciterOpenCanvas(con connection, can *canvas) {
 		log.Fatal(err)
 	}
 
-	ok := w.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
-	if !ok {
-		log.Errorf("Failed to set sciter debug mode")
-	}
+	// Testing pixel events
+	/*go func() {
+		for {
+			can.setPixel(image.Point{rand.Intn(128), rand.Intn(128)}, color.RGBA{uint8(rand.Intn(256)), uint8(rand.Intn(256)), uint8(rand.Intn(256)), uint8(rand.Intn(256))})
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()*/
 
 	w.Show()
-	w.Run()
 
-	can.unsubscribeListener(sca)
-
-	if sca.handlerChan != nil {
-		close(sca.handlerChan)
-	}
+	return closedChan
 }
 
 func (s *sciterCanvas) handleInvalidateAll() error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	val := sciter.NewValue()
 	val.Set("Type", "InvalidateAll")
 
@@ -177,6 +227,12 @@ func (s *sciterCanvas) handleInvalidateAll() error {
 }
 
 func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	val := sciter.NewValue()
 	val.Set("Type", "InvalidateRect")
 	val.Set("X", rect.Min.X)
@@ -190,6 +246,12 @@ func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
 }
 
 func (s *sciterCanvas) handleSetImage(img image.Image) error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	imageArray := imageToBGRAArray(img)
 	headerArray := [12]byte{'B', 'G', 'R', 'A'}
 	binary.BigEndian.PutUint32(headerArray[4:8], uint32(img.Bounds().Dx()))
@@ -213,16 +275,22 @@ func (s *sciterCanvas) handleSetImage(img image.Image) error {
 }
 
 func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color) error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	r, g, b, a := color.RGBA()
 
 	val := sciter.NewValue()
 	val.Set("Type", "SetPixel")
 	val.Set("X", pos.X)
 	val.Set("Y", pos.Y)
-	val.Set("R", r)
-	val.Set("G", g)
-	val.Set("B", b)
-	val.Set("A", a)
+	val.Set("R", r>>8)
+	val.Set("G", g>>8)
+	val.Set("B", b>>8)
+	val.Set("A", a>>8)
 
 	s.handlerChan <- val
 
@@ -230,6 +298,12 @@ func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color) error 
 }
 
 func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle) error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	val := sciter.NewValue()
 	val.Set("Type", "SignalDownload")
 	val.Set("X", rect.Min.X)
@@ -243,6 +317,12 @@ func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle) error {
 }
 
 func (s *sciterCanvas) handleChunksChange(create, remove []image.Rectangle) error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
 	jsonData := struct {
 		Type           string
 		Create, Remove []image.Rectangle

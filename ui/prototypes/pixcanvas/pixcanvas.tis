@@ -62,9 +62,13 @@ class PixCanvas : Behavior {
 		//pc.eventHandler([{Type: "ChunksChange", Remove: [], Create: [{Min: {X: 128, Y: 64},Max: {X: 128+64, Y: 64+64}}]}]);
 		//var img = new Image(64, 64, Graphics.RGBA("red"), function(gfx) {});
 		//pc.eventHandler([{Type: "SetImage", X: 128, Y: 64, Width: 64, Height: 64, Array: img.toBytes()}]);
-		var err = view.setEventHandler(pc, pc.eventHandler);
+		var err = view.subscribeCanvasEvents(pc, pc.eventHandler);
 
 		this.setZoom(0);
+	}
+
+	function detached() {
+		view.unsubscribeCanvasEvents();
 	}
 
 	function setZoom(zoomLevel) {
@@ -173,8 +177,7 @@ class PixCanvas : Behavior {
 		}
 		var (cx, cy) = (x - elem.MinX, y - elem.MinY);
 		elem.img.colorAt(cx, cy, Graphics.RGBA(event.R, event.G, event.B, event.A));
-		elem.bindImage("in-memory:chunk:"+x+":"+y, elem.img);
-		elem.attributes["src"] = "in-memory:chunk:"+x+":"+y; // TODO: Check if rebinding img and setting src is necessary
+		elem.refresh();
 	}
 
 	function eventSignalDownload(event) {
@@ -192,19 +195,19 @@ class PixCanvas : Behavior {
 		}
 
 		for (var rect in event.Create) {
-        	var imgElement = new Element("img");
-			this.$(.chunkContainer).append(imgElement);
-			imgElement.style.set({
-				width: rect.Max.X-rect.Min.X,
-				height: rect.Max.Y-rect.Min.Y,
-				left: rect.Min.X + this.canvasCenterX,
-				top: rect.Min.Y + this.canvasCenterY
+        	var elem = new Element("img");
+			this.$(.chunkContainer).append(elem);
+			elem.MinX = rect.Min.X;
+			elem.MinY = rect.Min.Y;
+			elem.MaxX = rect.Max.X;
+			elem.MaxY = rect.Max.Y;
+			elem.style.set({
+				width: elem.MaxX - elem.MinX,
+				height: elem.MaxY - elem.MinY,
+				left: elem.MinX + this.canvasCenterX,
+				top: elem.MinY + this.canvasCenterY
 				//transform: translate(rect.Min.X + this.canvasCenterX, rect.Min.Y + this.canvasCenterY)
 			});
-			imgElement.MinX = rect.Min.X;
-			imgElement.MinY = rect.Min.Y;
-			imgElement.MaxX = rect.Max.X;
-			imgElement.MaxY = rect.Max.Y;
 		}
 	}
 

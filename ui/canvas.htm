@@ -44,6 +44,11 @@
 			function self.ready() {
 				//view.connectToInspector();
 			}
+
+			function self.closing() {
+				pc.remove(); // So detached is called
+				view.signalClosed();
+			}
 		</script>
 	</head>
 	

@@ -113,7 +113,7 @@ func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, color color.Color) 
 		return fmt.Errorf("Listener is closed")
 	}
 
-	r, g, b, _ := color.RGBA()
+	r, g, b, _ := color.RGBA() // Returns 16 bit per channel
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType uint8
@@ -125,9 +125,9 @@ func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, color color.Color) 
 		Time:     time.Now().UnixNano(),
 		X:        int32(pos.X),
 		Y:        int32(pos.Y),
-		R:        uint8(r),
-		G:        uint8(g),
-		B:        uint8(b),
+		R:        uint8(r >> 8),
+		G:        uint8(g >> 8),
+		B:        uint8(b >> 8),
 	})
 	if err != nil {
 		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
