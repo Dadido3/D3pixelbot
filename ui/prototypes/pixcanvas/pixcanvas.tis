@@ -86,18 +86,6 @@ class PixCanvas : Behavior {
 			transform: [scale: this.zoom],
 		});
 
-		/*for (var elem in this.$(.chunkContainer)) {
-			elem.style.set({
-				width: elem.MaxX - elem.MinX,
-				height: elem.MaxY - elem.MinY,
-				left: elem.MinX + this.canvasCenterX * this.zoom,
-				top: elem.MinY + this.canvasCenterY * this.zoom
-				//transform: translate((elem.MinX + this.canvasCenterX) * this.zoom, (elem.MinY + this.canvasCenterY) * this.zoom)
-			});
-		}*/
-
-		// TODO: Fix vertical stripes on positive zoom
-
 		this.scrollTo((left * this.zoom - this.scroll(#width) / 2).toInteger(), (top * this.zoom - this.scroll(#height) / 2).toInteger(), false, true);
 
 		this.sendRects(null);

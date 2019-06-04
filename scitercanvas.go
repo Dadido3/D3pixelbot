@@ -75,7 +75,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			return sciter.NewValue("Can't subscribe to canvas: " + err.Error())
 		}
 
-		sca.handlerChan = make(chan *sciter.Value, 100) // Can be after can.subscribeListener, as the ClosedMutex is still locked here
+		sca.handlerChan = make(chan *sciter.Value, 300) // Can be after can.subscribeListener, as the ClosedMutex is still locked here
 		sca.Closed = false
 
 		go func(channel <-chan *sciter.Value) {
@@ -89,7 +89,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 				}
 				events = append(events, event)
 			batchLoop:
-				for i := 1; i < 50; i++ { // Limit batch size to 50
+				for i := 1; i < 25; i++ { // Limit batch size to 25
 					select {
 					case event, ok := <-channel:
 						if ok {
