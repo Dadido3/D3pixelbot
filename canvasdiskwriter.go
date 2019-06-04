@@ -188,29 +188,22 @@ func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle) error {
 		return fmt.Errorf("Listener is closed")
 	}
 
-	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
-		DataType               uint8
-		Time                   int64
-		MinX, MinY, MaxX, MaxY int32
-	}{
-		DataType: 22,
-		Time:     time.Now().UnixNano(),
-		MinX:     int32(rect.Min.X),
-		MinY:     int32(rect.Min.Y),
-		MaxX:     int32(rect.Max.X),
-		MaxY:     int32(rect.Max.Y),
-	})
-	if err != nil {
-		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
-	}
+	// There is no need to write that data to disk
+	// The signalDownload event will be simulated by the diskreader later
+
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleSetImage(img image.Image) error {
+func (cdw *canvasDiskWriter) handleSetImage(img image.Image, valid bool) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
 		return fmt.Errorf("Listener is closed")
+	}
+
+	// If image is not in sync with the game, ignore it. A valid image will come later
+	if !valid {
+		return nil
 	}
 
 	bounds := img.Bounds()

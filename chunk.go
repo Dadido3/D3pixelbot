@@ -42,7 +42,7 @@ type chunk struct {
 	Image   image.Image // TODO: Compress or unload image when not needed
 
 	PixelQueue         []pixelQueueElement // Queued pixels, that are set while the image is downloading
-	Valid, Downloading bool                // Valid: Data is in sync with the game. Downloading: Data is being downloaded
+	Valid, Downloading bool                // Valid: Data is in sync with the game. Downloading: Data is being downloaded. Both flags can't be true at the same time
 	LastQueryTime      time.Time           // Point in time, when that chunk was queried last time. If this chunk hasn't been queried for some period, it will be unloaded.
 }
 
@@ -203,20 +203,20 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 	return cpyImg, nil
 }
 
-func (chu *chunk) getImageCopy(onlyIfValid bool) (image.Image, error) {
+func (chu *chunk) getImageCopy(onlyIfValid bool) (image.Image, bool, bool, error) {
 	chu.RLock()
 	defer chu.RUnlock()
 
 	if onlyIfValid && !chu.Valid {
-		return nil, fmt.Errorf("Chunk is not valid")
+		return nil, false, false, fmt.Errorf("Chunk is not valid")
 	}
 
 	cpyImg, err := copyImage(chu.Image)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't copy image: %v", err)
+		return nil, false, false, fmt.Errorf("Couldn't copy image: %v", err)
 	}
 
-	return cpyImg, nil
+	return cpyImg, chu.Valid, chu.Downloading, nil
 }
 
 // Invalidates the image, which shows that this chunk contains old or completely wrong data.

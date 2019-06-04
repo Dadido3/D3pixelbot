@@ -143,10 +143,14 @@ func newPixelcanvasio() (connection, *canvas) {
 		}}.getPixelRectangle(pixelcanvasioChunkSize)
 
 		// Signalling must not be in the goroutine, so that the download isn't started several times because of neighbors
-		_, err := con.Canvas.signalDownload(ca)
+		chunks, err := con.Canvas.signalDownload(ca)
 		if err != nil {
 			return fmt.Errorf("Can't signal downloading of chunks at %v: %v", cc, err)
 		}
+		if len(chunks) == 0 {
+			return fmt.Errorf("Couldn't signal download for any chunk at %v", cc)
+		}
+		// TODO: Only setImage on chunks returned by signalDownload
 
 		downloadWaitgroup.Add(1)
 		go func() {
@@ -240,7 +244,7 @@ func newPixelcanvasio() (connection, *canvas) {
 			u.RawQuery = "fingerprint=" + con.Fingerprint
 
 			// Connect to websocket server
-			c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+			c, _, err := websocket.DefaultDialer.Dial(u.String(), nil) // TODO: Connecting pinging and timeouts
 			if err != nil {
 				log.Errorf("Failed to connect to websocket server %v: %v", u.String(), err)
 				continue

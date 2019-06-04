@@ -65,7 +65,7 @@ type canvasListener interface {
 
 	handleInvalidateAll() error
 	handleInvalidateRect(rect image.Rectangle) error
-	handleSetImage(img image.Image) error
+	handleSetImage(img image.Image, valid bool) error
 	handleSetPixel(pos image.Point, color color.Color) error
 	handleSignalDownload(rect image.Rectangle) error
 }
@@ -87,7 +87,7 @@ type canvas struct {
 	ChunkSize pixelSize
 	Palette   color.Palette
 
-	EventChan        chan interface{} // Forwards incoming events to the goroutine
+	EventChan        chan interface{} // Forwards incoming canvasEvent* events to the goroutine
 	ChunkRequestChan chan *chunk      // Chunk download requests that go to the game connection // TODO: Convert it to a method, not a channel
 }
 
@@ -184,12 +184,12 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 				case canvasEventSetImage:
 					for listener, state := range listeners {
 						if state.ForwardAll {
-							listener.handleSetImage(event.Image)
+							listener.handleSetImage(event.Image, true)
 							continue
 						}
 						for rect := range state.Chunks {
 							if event.Image.Bounds().Overlaps(rect) {
-								listener.handleSetImage(event.Image)
+								listener.handleSetImage(event.Image, true)
 								break
 							}
 						}
@@ -277,13 +277,14 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 
 						// Additionally send images for the new chunks if possible
 						for _, rect := range createChunks {
-							img, err := can.getImageCopy(rect, true, false)
+							chunkCoord := can.ChunkSize.getChunkCoord(rect.Min)
+							chunk, err := can.getChunk(chunkCoord, false)
 							if err == nil {
-								// Existing chunk with valid data, simulate download process to that specific listener
-								event.Listener.handleSignalDownload(rect)
-								event.Listener.handleSetImage(img)
+								img, valid, _, err := chunk.getImageCopy(false)
+								if err == nil {
+									event.Listener.handleSetImage(img, valid)
+								}
 							}
-							// TODO: Send invalid chunks somehow. Maybe with a new handler
 						}
 
 					}
@@ -507,7 +508,7 @@ func (can *canvas) getImageCopy(rect image.Rectangle, onlyIfValid, ignoreNonexis
 	img := image.NewRGBA(rect)
 
 	for _, chunk := range chunks {
-		imgCopy, err := chunk.getImageCopy(onlyIfValid)
+		imgCopy, _, _, err := chunk.getImageCopy(onlyIfValid)
 		if err == nil {
 			draw.Draw(img, rect, imgCopy, rect.Min, draw.Over)
 		} else if onlyIfValid {

@@ -245,7 +245,7 @@ func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
 	return nil
 }
 
-func (s *sciterCanvas) handleSetImage(img image.Image) error {
+func (s *sciterCanvas) handleSetImage(img image.Image, valid bool) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()
 	if s.Closed {
@@ -268,6 +268,7 @@ func (s *sciterCanvas) handleSetImage(img image.Image) error {
 	defer valArray.Release()
 	valArray.SetBytes(array)
 	val.Set("Array", valArray)
+	val.Set("Valid", valid)
 
 	s.handlerChan <- val
 

@@ -59,9 +59,9 @@ class PixCanvas : Behavior {
 			return true;
 		});
 
-		//pc.eventHandler([{Type: "ChunksChange", Remove: [], Create: [{Min: {X: 128, Y: 64},Max: {X: 128+64, Y: 64+64}}]}]);
+		//this.eventHandler([{Type: "ChunksChange", Remove: [], Create: [{Min: {X: 128, Y: 64},Max: {X: 128+64, Y: 64+64}}]}]);
 		//var img = new Image(64, 64, Graphics.RGBA("red"), function(gfx) {});
-		//pc.eventHandler([{Type: "SetImage", X: 128, Y: 64, Width: 64, Height: 64, Array: img.toBytes()}]);
+		//this.eventHandler([{Type: "SetImage", X: 128, Y: 64, Width: 64, Height: 64, Array: img.toBytes()}]);
 		var err = view.subscribeCanvasEvents(pc, pc.eventHandler);
 
 		this.setZoom(0);
@@ -143,29 +143,32 @@ class PixCanvas : Behavior {
 
 	function eventInvalidateAll(event) {
 		for (var elem in this.$(.chunkContainer)) {
-			// TODO: Show invalid chunks
+			elem.attributes.addClass("invalid");
 		}
 	}
 
 	function InvalidateRect(event) {
-		var elem = this.getChunk(event.X, event.Y);
+		var elem = this.getChunk(event.X, event.Y); // TODO: Get chunks in whole rectangle
 		if (elem == null) {
 			return;
 		}
-		// TODO: Show invalid chunks
+		elem.attributes.addClass("invalid");
 	}
 
 	function eventSetImage(event) {
 		var (x, y) = (event.X, event.Y);
 
-		var elem = this.getChunk(x, y);
+		var elem = this.getChunk(x, y); // TODO: Get chunks in whole rectangle
 		if (elem == null) {
 			return;
 		}
 
 		var img = Image.fromBytes(event.Array);
+		elem.attributes.toggleClass("invalid", !event.Valid);
+		elem.attributes.removeClass("downloading");
 		elem.bindImage("in-memory:chunk:"+x+":"+y, img);
-		elem.attributes["src"] = "in-memory:chunk:"+x+":"+y;
+		//elem.attributes["src"] = "in-memory:chunk:"+x+":"+y;
+		elem.style["background-image"] = "url(in-memory:chunk:"+x+":"+y+")";
 		elem.img = img;
 	}
 
@@ -181,12 +184,11 @@ class PixCanvas : Behavior {
 	}
 
 	function eventSignalDownload(event) {
-		var elem = this.getChunk(event.X, event.Y);
+		var elem = this.getChunk(event.X, event.Y); // TODO: Get chunks in whole rectangle
 		if (elem == null) {
 			return;
 		}
-		// TODO: Show downloading chunks
-		//elem.style#display = "none";
+		elem.attributes.addClass("downloading");
 	}
 
 	function eventChunksChange(event) {
@@ -195,8 +197,9 @@ class PixCanvas : Behavior {
 		}
 
 		for (var rect in event.Create) {
-        	var elem = new Element("img");
+        	var elem = new Element("div");
 			this.$(.chunkContainer).append(elem);
+			elem.attributes.addClass("chunk");
 			elem.MinX = rect.Min.X;
 			elem.MinY = rect.Min.Y;
 			elem.MaxX = rect.Max.X;
@@ -208,6 +211,8 @@ class PixCanvas : Behavior {
 				top: elem.MinY + this.canvasCenterY
 				//transform: translate(rect.Min.X + this.canvasCenterX, rect.Min.Y + this.canvasCenterY)
 			});
+			var span = new Element("span");
+			elem.append(span);
 		}
 	}
 
