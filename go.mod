@@ -9,5 +9,6 @@ require (
 	github.com/mattn/go-colorable v0.1.2
 	github.com/sciter-sdk/go-sciter v0.5.1-0.20190523104704-16890f6f182b
 	github.com/sirupsen/logrus v1.4.2
+	github.com/spf13/viper v1.4.0
 	golang.org/x/sys v0.0.0-20190527104216-9cd6430ef91e // indirect
 )

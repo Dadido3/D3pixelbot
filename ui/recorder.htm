@@ -1,0 +1,133 @@
+<html window-frame="solid-with-shadow" window-blurbehind="dark" theme="dark" window-frame="none">
+	<head>
+		<title>D3pixelbot Recorder</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<style>
+			@import url("styles/flat-theme.css");
+
+            html {
+				background: transparent;
+			}
+
+			body {
+				flow:	"1"
+						"2"
+						"3";
+				font:system;
+				border-spacing: 6dip;
+			}
+
+			.btn-box {
+				text-align: right;
+			}
+
+			select {
+				display: block;
+				width: *;
+				height: *;
+			}
+
+			button {
+				margin-left: 6dip;
+			}
+
+			.table {
+				flow: row(label, select input div textarea button);
+				border-spacing: 6dip;
+				height: *;
+			}
+			.table > label { padding:4dip; white-space:nowrap; horizontal-align:right; }
+			/*.table > * { display:block; }*/
+	  
+		</style>
+		<script type="text/tiscript">
+			var rects = [];
+			var listElem = $(#rects-list);
+
+			rects = view.getRects();
+
+			function rectToString(rect) {
+				return "(" + rect.Min.X + ", " + rect.Min.Y + ")-(" + rect.Max.X + ", " + rect.Max.Y + ")"
+			}
+
+			function updateList() {
+				listElem.options.clear();
+				for(var (i, rect) in rects) {
+					listElem.options.$append(<option value={i}>{i + ": " + rectToString(rect)}</option>);
+				}
+			}
+
+			function self.ready() {
+				updateList()
+			}
+
+			function dialog(id, rect) {
+				return view.dialog({
+						url: self.url("recorder-dialog.htm"),
+						parameters: {
+							ID: id,
+							Rect: rect
+						}
+					});
+			}
+
+			function validateRect(rect) {
+				if (rect.Min.X === undefined) {rect.Min.X = 0;}
+				if (rect.Min.Y === undefined) {rect.Min.Y = 0;}
+				if (rect.Max.X === undefined) {rect.Max.X = 0;}
+				if (rect.Max.Y === undefined) {rect.Max.Y = 0;}
+				if (rect.Min.X > rect.Max.X) {rect.Max.X = rect.Min.X;}
+				if (rect.Min.Y > rect.Max.Y) {rect.Max.Y = rect.Min.Y;}
+				return rect;
+			}
+
+			$(#btn-delete).on("click", function() {
+				if (rects[listElem.value] !== undefined) {
+					delete(rects[listElem.value]);
+					updateList();
+					view.registerRects(rects);
+				}
+			});
+
+			$(#btn-edit).on("click", function() {
+				if (rects[listElem.value] !== undefined) {
+					var res = dialog(listElem.value, rects[listElem.value]);
+					if (res !== undefined) {
+						rects[res.ID] = validateRect(res.Rect); // Get rect
+						updateList();
+						view.registerRects(rects);
+					}
+				}
+			});
+
+			$(#btn-add).on("click", function() {
+				var res = dialog(rects.length, {});
+				if (res !== undefined) {
+					rects[res.ID] = validateRect(res.Rect); // Get rect
+					updateList();
+					view.registerRects(rects);
+				}
+			});
+
+			function self.closing() {
+				view.signalClosed();
+			}
+		</script>
+	</head>
+	
+	<body>
+		<div>
+			<h2>Recording active</h2>
+			<p>
+				This module records all events sent by the game.
+				Below you can define a list of rectangles that should be kept up to date.
+				The recorder will record all events, even the ones outside of the defined rectangles.
+			</p>
+		</div>
+		<select|list #rects-list size=16></select>
+		<div.btn-box>
+			<button#btn-delete>Delete</button><button#btn-edit>Edit</button><button#btn-add>Add</button>
+		</div>
+	</body>
+	
+</html>

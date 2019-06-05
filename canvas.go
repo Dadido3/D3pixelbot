@@ -273,6 +273,8 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 						state.Chunks = neededChunks
 						listeners[event.Listener] = state
 
+						// TODO: Add flag that will ignore rects for sending chunks to listeners, and just send everything
+
 						event.Listener.handleChunksChange(createChunks, removeChunks)
 
 						// Additionally send images for the new chunks if possible

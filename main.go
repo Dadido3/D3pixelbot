@@ -28,6 +28,7 @@ import (
 
 	colorable "github.com/mattn/go-colorable"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 var log = logrus.New()
@@ -52,6 +53,12 @@ func main() {
 	log.SetOutput(io.MultiWriter(colorable.NewColorableStdout(), f)) // TODO: Separate formatting for logfiles
 	log.SetLevel(logrus.TraceLevel)
 
+	viper.SetConfigFile(filepath.Join(".", "config.json"))
+	err = viper.ReadInConfig()
+	if err != nil {
+		log.Errorf("Can't load config file: %v", err)
+	}
+
 	log.Info("D3pixelbot started")
 
 	// Init connection types
@@ -59,7 +66,6 @@ func main() {
 	connectionTypes = map[string]connectionType{
 		"pixelcanvasio": connectionType{
 			Name:        "PixelCanvas.io",
-			ShortName:   "pixelcanvasio",
 			FunctionNew: newPixelcanvasio,
 		},
 	}

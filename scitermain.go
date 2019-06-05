@@ -60,6 +60,33 @@ func sciterOpenMain() {
 		return nil
 	})
 
+	w.DefineFunction("recordLocal", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 1 {
+			return sciter.NewValue("Wrong number of parameters")
+		}
+		if !args[0].IsString() {
+			return sciter.NewValue("Wrong type of parameters")
+		}
+
+		game := args[0].String() // Always clone, otherwise those are just references to sciter values and will be invalid if used after return
+
+		connectionType, ok := connectionTypes[game]
+		if !ok {
+			return sciter.NewValue(fmt.Sprintf("game %v not found", game))
+		}
+
+		con, can := connectionType.FunctionNew()
+
+		closeSignal := sciterOpenRecorder(con, can)
+
+		go func() {
+			<-closeSignal
+			con.Close()
+		}()
+
+		return nil
+	})
+
 	path, err := filepath.Abs("ui/main.htm")
 	if err != nil {
 		log.Fatal(err)

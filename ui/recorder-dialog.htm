@@ -1,0 +1,67 @@
+<html>
+	<head>
+		<title>D3pixelbot Rectangle</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<style>
+			@import url("styles/flat-theme.css");
+
+            html {
+				font:system;
+				width:20em; 
+				height:max-content; 
+				overflow:hidden; 
+			}
+
+			body {
+				font:system;
+				border-spacing: 6dip;
+			}
+
+			.btn-box {
+				text-align: right;
+			}
+
+			button {
+				margin-left: 6dip;
+			}
+
+			.table {
+				flow: row(label, select input div textarea button output);
+				border-spacing: 6dip;
+				/*background-color: rgba(0, 0, 0, 0.171);*/
+				height: *;
+			}
+			.table > label {
+				white-space:nowrap;
+				horizontal-align:right;
+				padding:4dip;
+			}
+	  
+		</style>
+		<script type="text/tiscript">
+			$(form).value = view.parameters;
+
+			$(#btn-save).on("click", function() {
+				view.close($(form).value);
+			});
+		</script>
+	</head>
+	
+	<body>
+		<h2>Rectangle</h2>
+		<p>
+			Coordinates of the upper left (Min) and lower right (Max) points of the rectangle.
+			The Max point isn't included in the rectangle.
+		</p>
+		<form.table>
+			<output|integer(ID) hidden></output>
+			<label>Rect:</label>
+			<div.table(Rect)>
+				<label>Min (X, Y):</label><div(Min)><input|integer(X)/><input|integer(Y)/></div>
+				<label>Max (X, Y):</label><div(Max)><input|integer(X)/><input|integer(Y)/></div>
+			</div>
+		</form>
+		<div.btn-box><button#btn-save>Save</button></div>
+	</body>
+	
+</html>

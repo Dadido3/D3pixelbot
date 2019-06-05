@@ -17,13 +17,17 @@
 package main
 
 type connection interface {
+	getShortName() string // Return short and filesystem friendly name, also used as internal identifier
+	getName() string      // Return full name for display purposes
+
+	// TODO: Add subscribe and unsubscribe methods
+
 	getOnlinePlayers() int
 	Close()
 }
 
 type connectionType struct {
-	Name      string // Shown in UI
-	ShortName string // Used in filesystem and internally
+	Name string
 
 	FunctionNew func() (connection, *canvas)
 }

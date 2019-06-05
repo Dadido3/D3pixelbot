@@ -330,6 +330,14 @@ func newPixelcanvasio() (connection, *canvas) {
 	return con, con.Canvas
 }
 
+func (con *connectionPixelcanvasio) getShortName() string {
+	return "pixelcanvasio"
+}
+
+func (con *connectionPixelcanvasio) getName() string {
+	return "PixelCanvas.io"
+}
+
 func (con *connectionPixelcanvasio) getOnlinePlayers() int {
 	return int(atomic.LoadUint32(&con.OnlinePlayers))
 }
