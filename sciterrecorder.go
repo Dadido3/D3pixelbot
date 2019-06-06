@@ -39,7 +39,7 @@ type sciterRecorder struct {
 	Closed      bool
 }
 
-// Opens a new sciter recorder and attaches itself to the given connection and canvas
+// Opens a new sciter recorder and attaches a diskwriter to the given canvas
 //
 // ONLY CALL FROM MAIN THREAD!
 func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) {

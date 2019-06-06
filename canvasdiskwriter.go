@@ -14,6 +14,8 @@
     You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+// TODO: Prevent a writer to be created for the same connection several times
+
 package main
 
 import (
@@ -174,6 +176,31 @@ func (cdw *canvasDiskWriter) handleInvalidateAll() error {
 	}{
 		Time:     time.Now().UnixNano(),
 		DataType: 21,
+	})
+	if err != nil {
+		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
+	}
+	return nil
+}
+
+func (cdw *canvasDiskWriter) handleRevalidateRect(rect image.Rectangle) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
+	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
+		DataType               uint8
+		Time                   int64
+		MinX, MinY, MaxX, MaxY int32
+	}{
+		DataType: 22,
+		Time:     time.Now().UnixNano(),
+		MinX:     int32(rect.Min.X),
+		MinY:     int32(rect.Min.Y),
+		MaxX:     int32(rect.Max.X),
+		MaxY:     int32(rect.Max.Y),
 	})
 	if err != nil {
 		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)

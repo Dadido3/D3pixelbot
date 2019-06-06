@@ -245,6 +245,25 @@ func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
 	return nil
 }
 
+func (s *sciterCanvas) handleRevalidateRect(rect image.Rectangle) error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
+	val := sciter.NewValue()
+	val.Set("Type", "RevalidateRect")
+	val.Set("X", rect.Min.X)
+	val.Set("Y", rect.Min.Y)
+	val.Set("Width", rect.Dx())
+	val.Set("Height", rect.Dy())
+
+	s.handlerChan <- val
+
+	return nil
+}
+
 func (s *sciterCanvas) handleSetImage(img image.Image, valid bool) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()

@@ -23,6 +23,8 @@ import (
 	"image/draw"
 	"sync"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 const (
@@ -37,9 +39,8 @@ type pixelQueueElement struct {
 type chunk struct {
 	sync.RWMutex
 
-	Rect    image.Rectangle
-	Palette color.Palette
-	Image   image.Image // TODO: Compress or unload image when not needed
+	Rect  image.Rectangle
+	Image image.Image // TODO: Compress or unload image when not needed
 
 	PixelQueue         []pixelQueueElement // Queued pixels, that are set while the image is downloading
 	Valid, Downloading bool                // Valid: Data is in sync with the game. Downloading: Data is being downloaded. Both flags can't be true at the same time
@@ -171,10 +172,30 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 	case *image.Paletted:
 		newImg := image.NewPaletted(chu.Rect, srcImg.Palette)
 		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
+
+		// If images are equal, copy nothing
+		if cmp.Equal(chu.Image, newImg) && len(chu.PixelQueue) == 0 {
+			chu.PixelQueue = []pixelQueueElement{}
+			chu.Downloading = false
+			chu.Valid = true
+
+			return nil, nil // Return no image copy, this will cause the canvas to send a revalidate event
+		}
+
 		chu.Image = newImg
 	default:
 		newImg := image.NewRGBA(chu.Rect)
 		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
+
+		// If images are equal, copy nothing
+		if cmp.Equal(chu.Image, newImg) && len(chu.PixelQueue) == 0 {
+			chu.PixelQueue = []pixelQueueElement{}
+			chu.Downloading = false
+			chu.Valid = true
+
+			return nil, nil // Return no image copy, this will cause the canvas to send a revalidate event
+		}
+
 		chu.Image = newImg
 	}
 
@@ -192,13 +213,12 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 
 	chu.PixelQueue = []pixelQueueElement{}
 	chu.Downloading = false
+	chu.Valid = true
 
 	cpyImg, err := copyImage(chu.Image)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't copy image: %v", err)
 	}
-
-	chu.Valid = true
 
 	return cpyImg, nil
 }
@@ -221,12 +241,26 @@ func (chu *chunk) getImageCopy(onlyIfValid bool) (image.Image, bool, bool, error
 
 // Invalidates the image, which shows that this chunk contains old or completely wrong data.
 //
-// setImage() has to be used to signal that the chunk is valid (in sync with the game).
+// setImage() or revalidate() has to be used to signal that the chunk is valid again (in sync with the game).
 func (chu *chunk) invalidateImage() {
 	chu.Lock()
 	defer chu.Unlock()
 
 	chu.Valid = false
+
+	return
+}
+
+// Signal that the current data of the chunk is valid again.
+//
+// This doesn't need to be called, if setImage() has been called.
+func (chu *chunk) revalidate() {
+	chu.Lock()
+	defer chu.Unlock()
+
+	chu.PixelQueue = []pixelQueueElement{}
+	chu.Downloading = false
+	chu.Valid = true
 
 	return
 }

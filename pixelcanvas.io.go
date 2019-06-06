@@ -397,7 +397,7 @@ func (con *connectionPixelcanvasio) authenticateMe() error {
 	return nil
 }
 
-// Closes connection and canvas, if one was created at the beginning
+// Closes connection and canvas
 func (con *connectionPixelcanvasio) Close() {
 	pixelcanvasioConnectionMutex.Lock()
 	defer pixelcanvasioConnectionMutex.Unlock()

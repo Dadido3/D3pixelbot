@@ -44,7 +44,9 @@ type canvasEventSignalDownload struct {
 	Rect image.Rectangle
 }
 
-// TODO: Add more events: revalidate (when just a few pixels have changed after redownloading/validating a chunk)
+type canvasEventRevalidate struct {
+	Rect image.Rectangle
+}
 
 type canvasEventListenerSubscribe struct {
 	Listener canvasListener
@@ -68,6 +70,7 @@ type canvasListener interface {
 	handleSetImage(img image.Image, valid bool) error
 	handleSetPixel(pos image.Point, color color.Color) error
 	handleSignalDownload(rect image.Rectangle) error
+	handleRevalidateRect(rect image.Rectangle) error
 }
 
 type canvasListenerState struct {
@@ -210,6 +213,19 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Pa
 				case canvasEventInvalidateAll:
 					for listener := range listeners {
 						listener.handleInvalidateAll()
+					}
+				case canvasEventRevalidate:
+					for listener, state := range listeners {
+						if state.ForwardAll {
+							listener.handleRevalidateRect(event.Rect)
+							continue
+						}
+						for rect := range state.Chunks {
+							if event.Rect.Overlaps(rect) {
+								listener.handleRevalidateRect(event.Rect)
+								break
+							}
+						}
 					}
 				case canvasEventSignalDownload:
 					for listener, state := range listeners {
@@ -485,8 +501,14 @@ func (can *canvas) setImage(img image.Image, createIfNonexistent, ignoreNonexist
 			continue
 		}
 		// Forward event to broadcaster goroutine. It needs to be sent after chunk manipulation to keep everything in sync
-		can.EventChan <- canvasEventSetImage{
-			Image: resultImg,
+		if resultImg != nil {
+			can.EventChan <- canvasEventSetImage{
+				Image: resultImg,
+			}
+		} else {
+			can.EventChan <- canvasEventRevalidate{
+				Rect: chunk.Rect,
+			}
 		}
 	}
 
@@ -547,6 +569,36 @@ func (can *canvas) invalidateRect(rect image.Rectangle) error {
 
 	for _, chunk := range chunks {
 		chunk.invalidateImage()
+	}
+
+	return nil
+}
+
+// Revalidates chunks to signal that they in sync with the game again.
+//
+// There is no need to call this function, if SetImage has been used.
+func (can *canvas) revalidateRect(rect image.Rectangle) error {
+	can.ClosedMutex.RLock()
+	defer can.ClosedMutex.RUnlock()
+	if can.Closed {
+		return fmt.Errorf("Canvas is closed")
+	}
+
+	// Forward event to broadcaster goroutine. But send after chunks have been revalidated
+	defer func() {
+		can.EventChan <- canvasEventRevalidate{
+			Rect: rect,
+		}
+	}()
+
+	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+	chunks, err := can.getChunks(chunkRect, false, true)
+	if err != nil {
+		return fmt.Errorf("Can't get chunks from rectangle %v: %v", rect, err)
+	}
+
+	for _, chunk := range chunks {
+		chunk.revalidate()
 	}
 
 	return nil
