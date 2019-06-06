@@ -23,7 +23,7 @@ import (
 )
 
 func Test_canvas_newCanvasDiskWriter(t *testing.T) {
-	can, _ := newCanvas(pixelSize{64, 64}, pixelcanvasioCanvasRect, pixelcanvasioPalette)
+	can, _ := newCanvas(pixelSize{64, 64}, pixelcanvasioCanvasRect)
 
 	cdw, err := can.newCanvasDiskWriter("Test")
 	if err != nil {
@@ -41,7 +41,7 @@ func Test_canvas_newCanvasDiskWriter(t *testing.T) {
 
 	for i := 0; i < 128; i++ {
 		pos := image.Point{i, i}
-		if err := can.setPixel(pos, can.Palette[rand.Intn(len(can.Palette))]); err != nil {
+		if err := can.setPixel(pos, pixelcanvasioPalette[rand.Intn(len(pixelcanvasioPalette))]); err != nil {
 			t.Errorf("Can't set pixel at %v: %v", pos, err)
 		}
 	}

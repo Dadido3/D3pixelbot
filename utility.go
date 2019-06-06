@@ -181,6 +181,29 @@ func imageToRGBArray(img image.Image) []byte {
 
 }
 
+// Converts an RGB array to image.RGBA
+func rgbArrayToImage(imageData []byte, rect image.Rectangle) (*image.RGBA, error) {
+	rect = rect.Canon()
+
+	if len(imageData) != rect.Dx()*rect.Dy()*3 {
+		return nil, fmt.Errorf("Incorrect size of array (Expected %v, got %v)", rect.Dx()*rect.Dy()*3, len(imageData))
+	}
+
+	img := &image.RGBA{
+		Pix:    make([]byte, rect.Dx()*rect.Dy()*4),
+		Rect:   rect,
+		Stride: rect.Dx() * 4,
+	}
+
+	j := 0
+	for i := 0; i+2 < len(imageData); i += 3 {
+		img.Pix[j+0], img.Pix[j+1], img.Pix[j+2], img.Pix[j+3] = imageData[i+0], imageData[i+1], imageData[i+2], 255
+		j += 4
+	}
+
+	return img, nil
+}
+
 // Converts any image to an BGRA array
 func imageToBGRAArray(img image.Image) []byte {
 	rect := img.Bounds()

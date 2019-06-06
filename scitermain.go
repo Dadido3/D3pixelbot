@@ -87,6 +87,31 @@ func sciterOpenMain() {
 		return nil
 	})
 
+	w.DefineFunction("replayLocal", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 1 {
+			return sciter.NewValue("Wrong number of parameters")
+		}
+		if !args[0].IsString() {
+			return sciter.NewValue("Wrong type of parameters")
+		}
+
+		game := args[0].String() // Always clone, otherwise those are just references to sciter values and will be invalid if used after return
+
+		con, can, err := newCanvasDiskReader(game)
+		if err != nil {
+			return sciter.NewValue(fmt.Sprintf("Can't open recording of %v: %v", game, err))
+		}
+
+		closeSignal := sciterOpenCanvas(con, can)
+
+		go func() {
+			<-closeSignal
+			con.Close()
+		}()
+
+		return nil
+	})
+
 	path, err := filepath.Abs("ui/main.htm")
 	if err != nil {
 		log.Fatal(err)

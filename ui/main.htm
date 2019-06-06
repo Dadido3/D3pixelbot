@@ -57,6 +57,12 @@
 				var res = view.recordLocal(values.game);
 				debug : res;
 			});
+
+			$(#btn-local-replay).on("click", function() {
+				var values = $(#local-settings).value;
+				var res = view.replayLocal(values.game);
+				debug : res;
+			});
 		</script>
 	</head>
 	
@@ -112,7 +118,7 @@
 				</form>
 
 				<div .btn-box>
-					<button#btn-replay>Replay</button>
+					<button#btn-local-replay>Replay</button>
 				</div>
 			</section>
 			<section(fourth)>

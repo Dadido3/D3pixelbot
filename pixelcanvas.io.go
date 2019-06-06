@@ -98,7 +98,7 @@ func newPixelcanvasio() (connection, *canvas) {
 
 	pixelcanvasioConnection = con
 
-	con.Canvas, con.ChunkDownloadChan = newCanvas(pixelcanvasioChunkSize, pixelcanvasioCanvasRect, pixelcanvasioPalette)
+	con.Canvas, con.ChunkDownloadChan = newCanvas(pixelcanvasioChunkSize, pixelcanvasioCanvasRect)
 
 	// Main goroutine that handles queries and timed things
 	con.QuitWaitgroup.Add(1)
@@ -195,7 +195,7 @@ func newPixelcanvasio() (connection, *canvas) {
 								Y: c.Y*pixelcanvasioChunkSize.Y + jy,
 							}
 
-							img.SetColorIndex(p.X, p.Y, (raw[i]>>4)&0x0F)
+							img.SetColorIndex(p.X, p.Y, (raw[i]>>4)&0x0F) // TODO: Optimize image drawing for receiving
 							img.SetColorIndex(p.X+1, p.Y, raw[i]&0x0F)
 							i++
 						}

@@ -91,7 +91,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 		sre.DiskWriter.setListeningRects(rects)
 		viper.Set("recorder."+con.getShortName()+".rects", rects)
-		log.Debug(viper.WriteConfig())
+		viper.WriteConfig()
 
 		return nil
 	})

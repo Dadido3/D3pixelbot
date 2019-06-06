@@ -15,6 +15,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 // TODO: Change channels to be handled and closed by the sending side, to prevent write access to already closed channels.
+// TODO: Redo most of the goroutine stopping mechanism
 
 package main
 
@@ -60,6 +61,14 @@ func main() {
 	}
 
 	log.Info("D3pixelbot started")
+
+	/*pFile, err := os.Create("profile.out")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pFile.Close()
+	pprof.StartCPUProfile(pFile)
+	defer pprof.StopCPUProfile()*/
 
 	// Init connection types
 	// TODO: Add connectionTypes in each game connection go file

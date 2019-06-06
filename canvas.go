@@ -84,21 +84,19 @@ type canvas struct {
 	Closed      bool
 	ClosedMutex sync.RWMutex
 
-	Rect   image.Rectangle // Valid area of the canvas // TODO: Enforce canvas limit
-	Chunks map[chunkCoordinate]*chunk
-
 	ChunkSize pixelSize
-	Palette   color.Palette
+	Rect      image.Rectangle // Valid area of the canvas // TODO: Enforce canvas limit
+	Chunks    map[chunkCoordinate]*chunk
 
 	EventChan        chan interface{} // Forwards incoming canvasEvent* events to the goroutine
 	ChunkRequestChan chan *chunk      // Chunk download requests that go to the game connection // TODO: Convert it to a method, not a channel
 }
 
-func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle, palette color.Palette) (*canvas, <-chan *chunk) {
+func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan *chunk) {
 	can := &canvas{
-		Chunks:           make(map[chunkCoordinate]*chunk, 0),
 		ChunkSize:        chunkSize,
-		Palette:          palette,
+		Rect:             canvasRect,
+		Chunks:           make(map[chunkCoordinate]*chunk),
 		EventChan:        make(chan interface{}), // TODO: Determine optimal chan size (Add waitGroup when channel buffering is enabled!)
 		ChunkRequestChan: make(chan *chunk, 5),
 	}

@@ -42,16 +42,16 @@ type canvasDiskWriter struct {
 	ZipWriter *gzip.Writer
 }
 
-func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
+func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, error) {
 	cdw := &canvasDiskWriter{
 		Canvas: can,
 	}
 
 	re := regexp.MustCompile("[^a-zA-Z0-9\\-\\.]+")
-	name = re.ReplaceAllString(name, "_")
+	shortName = re.ReplaceAllString(shortName, "_")
 
 	fileName := time.Now().UTC().Format("2006-01-02T150405") + ".pixrec" // Use RFC3339 like encoding, but with : removed
-	fileDirectory := filepath.Join(".", "recordings", name)
+	fileDirectory := filepath.Join(".", "recordings", shortName)
 	filePath := filepath.Join(fileDirectory, fileName)
 
 	os.MkdirAll(fileDirectory, 0777)
@@ -69,7 +69,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 	cdw.ZipWriter = zipWriter
 
 	// Write basic information about the canvas
-	cdw.ZipWriter.Name = name
+	cdw.ZipWriter.Name = shortName
 	cdw.ZipWriter.Comment = "D3's custom pixel game client recording"
 
 	err = binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
@@ -77,7 +77,7 @@ func (can *canvas) newCanvasDiskWriter(name string) (*canvasDiskWriter, error) {
 		Version                 uint16 // File format version
 		Time                    int64
 		ChunkWidth, ChunkHeight uint32
-		PaletteSize             uint16 // Size in entries, max 256
+		Reserved                uint16
 	}{
 		MagicNumber: 1128616528, // ASCII "PREC" in little endian
 		Version:     1,
