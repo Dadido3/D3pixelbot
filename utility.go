@@ -81,6 +81,7 @@ func divideCeil(a, b int) int {
 	return temp
 }
 
+// Returns if two palettes are equal
 func isPaletteEqual(pal1, pal2 color.Palette) bool {
 	if len(pal1) != len(pal2) {
 		return false
@@ -124,18 +125,69 @@ func copyImage(img image.Image) (image.Image, error) {
 	return nil, fmt.Errorf("Incompatible image type %T", img)
 }
 
+// Creates a copy of an image, without copying data outside that image rectangle.
+// This is useful to reduce the memory footprint of subimages.
+func copyImageReduced(img image.Image) (image.Image, error) {
+	switch img := img.(type) {
+	case *image.RGBA:
+		rect := img.Rect
+		stride := rect.Dx() * 4
+		imgCopy := &image.RGBA{
+			Pix:    make([]uint8, rect.Dx()*stride),
+			Stride: stride,
+			Rect:   rect,
+		}
+		for iy := 0; iy < rect.Dy(); iy++ {
+			copy(imgCopy.Pix[iy*stride:iy*stride+stride], img.Pix[iy*img.Stride:iy*img.Stride+stride])
+		}
+		return imgCopy, nil
+
+	case *image.Paletted:
+		rect := img.Rect
+		stride := rect.Dx()
+		imgCopy := &image.Paletted{
+			Pix:     make([]uint8, rect.Dx()*stride),
+			Stride:  stride,
+			Rect:    rect,
+			Palette: make(color.Palette, len(img.Palette)),
+		}
+		for iy := 0; iy < rect.Dy(); iy++ {
+			copy(imgCopy.Pix[iy*stride:iy*stride+stride], img.Pix[iy*img.Stride:iy*img.Stride+stride])
+		}
+		copy(imgCopy.Palette, img.Palette)
+		return imgCopy, nil
+	}
+
+	return nil, fmt.Errorf("Incompatible image type %T", img)
+}
+
+// Returns the part of the image that is seen by rect.
+// Pixels are shared between the original and sub image.
+func subImage(img image.Image, rect image.Rectangle) (image.Image, error) {
+	switch img := img.(type) {
+	case *image.RGBA:
+		return img.SubImage(rect), nil
+	case *image.Paletted:
+		return img.SubImage(rect), nil
+	}
+
+	return nil, fmt.Errorf("Incompatible image type %T", img)
+}
+
 // Returns whether two images are the same.
-// Only works with Paletted and RGBA yet.
 //
-// For speed reasons this function only compares the memory, therefore it can return false on images that look the same from the outside. (like Paletted vs RGBA, subimages)
+// Will return false in the following cases, even if the image data looks the same from the outside:
+// - Image types differ
+// - Palettes differ
+// - Image type not supported (Only Paletted and RGBA yet)
+//
+// Can compare:
+// - Subimages
 func compareImages(a, b image.Image) bool {
 	switch a := a.(type) {
 	case *image.Paletted:
 		b, ok := b.(*image.Paletted)
 		if !ok {
-			return false
-		}
-		if a.Stride != b.Stride {
 			return false
 		}
 		if !a.Rect.Eq(b.Rect) {
@@ -144,8 +196,13 @@ func compareImages(a, b image.Image) bool {
 		if !isPaletteEqual(a.Palette, b.Palette) {
 			return false
 		}
-		if !bytes.Equal(a.Pix, b.Pix) {
-			return false
+		aStride, bStride := a.Stride, b.Stride
+		width := a.Rect.Dx() // = b.Rect.Dx()
+		for iy := 0; iy < a.Rect.Dy(); iy++ {
+			// Compare line by line and respect the stride
+			if !bytes.Equal(a.Pix[iy*aStride:iy*aStride+width], b.Pix[iy*bStride:iy*bStride+width]) {
+				return false
+			}
 		}
 
 		return true
@@ -155,14 +212,16 @@ func compareImages(a, b image.Image) bool {
 		if !ok {
 			return false
 		}
-		if a.Stride != b.Stride {
-			return false
-		}
 		if !a.Rect.Eq(b.Rect) {
 			return false
 		}
-		if !bytes.Equal(a.Pix, b.Pix) {
-			return false
+		aStride, bStride := a.Stride, b.Stride
+		width := a.Rect.Dx() * 4 // = b.Rect.Dx() * 4
+		for iy := 0; iy < a.Rect.Dy(); iy++ {
+			// Compare line by line and respect the stride
+			if !bytes.Equal(a.Pix[iy*aStride:iy*aStride+width], b.Pix[iy*bStride:iy*bStride+width]) {
+				return false
+			}
 		}
 
 		return true
@@ -171,105 +230,21 @@ func compareImages(a, b image.Image) bool {
 	return false
 }
 
-// Converts any image to an RGBA array
-func imageToRGBAArray(img image.Image) []byte {
-	rect := img.Bounds()
-
-	switch img := img.(type) {
-	case *image.RGBA:
-		// Assumes that the stride == width * 4
-		return img.Pix
-	default:
-		array := make([]byte, rect.Dx()*rect.Dy()*4)
-
-		i := 0
-		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
-			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
-				r, g, b, a := img.At(ix, iy).RGBA() // Returns 16 bit per channel
-				array[i] = byte(r >> 8)
-				i++
-				array[i] = byte(g >> 8)
-				i++
-				array[i] = byte(b >> 8)
-				i++
-				array[i] = byte(a >> 8)
-				i++
-			}
-		}
-
-		return array
-	}
-
-}
-
-// Converts any image to an RGB array
-func imageToRGBArray(img image.Image) []byte {
-	rect := img.Bounds()
-
-	switch img := img.(type) {
-	default:
-		array := make([]byte, rect.Dx()*rect.Dy()*3)
-
-		i := 0
-		for iy := rect.Min.Y; iy < rect.Max.Y; iy++ {
-			for ix := rect.Min.X; ix < rect.Max.X; ix++ {
-				r, g, b, _ := img.At(ix, iy).RGBA() // Returns 16 bit per channel
-				array[i] = byte(r >> 8)
-				i++
-				array[i] = byte(g >> 8)
-				i++
-				array[i] = byte(b >> 8)
-				i++
-			}
-		}
-
-		return array
-	}
-
-}
-
-// Converts an RGB array to image.RGBA
-func rgbArrayToImage(imageData []byte, rect image.Rectangle) (*image.RGBA, error) {
-	rect = rect.Canon()
-
-	if len(imageData) != rect.Dx()*rect.Dy()*3 {
-		return nil, fmt.Errorf("Incorrect size of array (Expected %v, got %v)", rect.Dx()*rect.Dy()*3, len(imageData))
-	}
-
-	dstPix := make([]byte, rect.Dx()*rect.Dy()*4)
-
-	img := &image.RGBA{
-		Pix:    dstPix,
-		Rect:   rect,
-		Stride: rect.Dx() * 4,
-	}
-
-	j := 0
-	for i := 0; i <= len(dstPix)-4; i += 4 {
-		dstPix[i] = imageData[j]
-		j++
-		dstPix[i+1] = imageData[j]
-		j++
-		dstPix[i+2] = imageData[j]
-		j++
-		dstPix[i+3] = 255
-	}
-
-	return img, nil
-}
-
 // Converts any image to an BGRA array
 func imageToBGRAArray(img image.Image) []byte {
 	rect := img.Bounds()
 
 	switch img := img.(type) {
 	case *image.RGBA:
-		// Assumes that the stride == width * 4
-		array := make([]uint8, len(img.Pix))
-		copy(array, img.Pix)
-		for i := 0; i <= len(img.Pix)-4; i += 4 {
-			array[i], array[i+2] = array[i+2], array[i]
+		array := make([]uint8, rect.Dx()*rect.Dy()*4)
+		stride := rect.Dx() * 4
+		for iy := 0; iy < rect.Dy(); iy++ {
+			copy(array[iy*stride:iy*stride+stride], img.Pix[iy*img.Stride:iy*img.Stride+stride])
+			for i := iy * stride; i <= iy*stride+stride-4; i += 4 {
+				array[i], array[i+2] = array[i+2], array[i] // Swap R and B
+			}
 		}
+
 		return array
 	default:
 		array := make([]byte, rect.Dx()*rect.Dy()*4)

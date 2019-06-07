@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	"sync"
 	"time"
 )
@@ -153,7 +152,9 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 //
 // All queued pixels will be replayed when this function is called.
 // This helps to prevent inconsistencies while downloading chunks.
-// The result image is an up to date copy containing all queued changes.
+//
+// The chunk will share its pixels with the given image.
+// The result image is an up to date subimage copy containing all queued changes.
 func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 	chu.Lock()
 	defer chu.Unlock()
@@ -165,37 +166,22 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 		return nil, fmt.Errorf("The download flag isn't set")
 	}
 
-	// Create copy of a part of the source image. Fallback to RGBA image, if type is unknown
-	switch srcImg := srcImg.(type) {
-	case *image.Paletted:
-		newImg := image.NewPaletted(chu.Rect, srcImg.Palette)
-		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
-
-		// If images are equal, copy nothing
-		if compareImages(chu.Image, newImg) && len(chu.PixelQueue) == 0 {
-			chu.PixelQueue = []pixelQueueElement{}
-			chu.Downloading = false
-			chu.Valid = true
-
-			return nil, nil // Return no image copy, this will cause the canvas to send a revalidate event
-		}
-
-		chu.Image = newImg
-	default:
-		newImg := image.NewRGBA(chu.Rect)
-		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
-
-		// If images are equal, copy nothing
-		if compareImages(chu.Image, newImg) && len(chu.PixelQueue) == 0 { // TODO: Compare seems slow, check it
-			chu.PixelQueue = []pixelQueueElement{}
-			chu.Downloading = false
-			chu.Valid = true
-
-			return nil, nil // Return no image copy, this will cause the canvas to send a revalidate event
-		}
-
-		chu.Image = newImg
+	// Get the part that is seen through the chunk's rectangle
+	subImg, err := subImage(srcImg, chu.Rect)
+	if err != nil {
+		return nil, fmt.Errorf("Can't create sub image: %v", err)
 	}
+
+	// If images are equal, copy nothing
+	if compareImages(chu.Image, subImg) && len(chu.PixelQueue) == 0 {
+		chu.PixelQueue = []pixelQueueElement{}
+		chu.Downloading = false
+		chu.Valid = true
+
+		return nil, nil // Return no image copy, this will cause the canvas to send a revalidate event
+	}
+
+	chu.Image = subImg // This will share pixels with the srcImage
 
 	// Replay all the queued pixels
 	for _, pqe := range chu.PixelQueue {
@@ -213,7 +199,8 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 	chu.Downloading = false
 	chu.Valid = true
 
-	cpyImg, err := copyImage(chu.Image)
+	// Create copy of the subimage (in the most recent state)
+	cpyImg, err := copyImageReduced(chu.Image)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't copy image: %v", err)
 	}
@@ -229,7 +216,7 @@ func (chu *chunk) getImageCopy(onlyIfValid bool) (image.Image, bool, bool, error
 		return nil, false, false, fmt.Errorf("Chunk is not valid")
 	}
 
-	cpyImg, err := copyImage(chu.Image)
+	cpyImg, err := copyImageReduced(chu.Image)
 	if err != nil {
 		return nil, false, false, fmt.Errorf("Couldn't copy image: %v", err)
 	}

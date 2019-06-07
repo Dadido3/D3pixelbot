@@ -106,6 +106,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 		case chunkDelete:
 			can.Lock()
 			//delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min)) // TODO: Add option to not delete old chunks (For replay)
+			// TODO: IDEA: Only delete invalid chunks, and add option to clean up canvas (invalidate chunks outside of rects)
 			can.Unlock()
 		case chunkDownload:
 			select {
@@ -490,6 +491,12 @@ func (can *canvas) setImage(img image.Image, createIfNonexistent, ignoreNonexist
 	chunks, err := can.getChunks(chunkRect, createIfNonexistent, ignoreNonexistent)
 	if err != nil {
 		return fmt.Errorf("Can't get chunks from rectangle %v: %v", img.Bounds(), err)
+	}
+
+	// Copy image, because the chunks will use a subimage of this copy. Otherwise the original image will be edited
+	img, err = copyImage(img)
+	if err != nil {
+		return fmt.Errorf("Can't copy image at %v: %v", img.Bounds(), err)
 	}
 
 	for _, chunk := range chunks {

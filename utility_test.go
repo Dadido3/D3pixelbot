@@ -17,8 +17,6 @@
 package main
 
 import (
-	"image"
-	"reflect"
 	"testing"
 )
 
@@ -105,14 +103,5 @@ func Test_divideCeil(t *testing.T) {
 		if got := divideCeil(test.a, test.b); got != test.want {
 			t.Errorf("divideCeil(%v, %v) = %v, want %v", test.a, test.b, got, test.want)
 		}
-	}
-}
-
-var testImage = image.NewRGBA(image.Rect(0, 0, 64, 64))
-var testImageWant = make([]byte, 4*64*64)
-
-func Test_imageToRGBAArray(t *testing.T) {
-	if got := imageToRGBAArray(testImage); !reflect.DeepEqual(got, testImageWant) {
-		t.Errorf("imageToRGBAArray() = %v, want %v", got, testImageWant)
 	}
 }
