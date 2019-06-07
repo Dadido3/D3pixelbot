@@ -19,6 +19,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -28,6 +29,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"golang.org/x/image/bmp"
 
 	gzip "github.com/klauspost/pgzip"
 )
@@ -77,7 +80,14 @@ func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, err
 		Version                 uint16 // File format version
 		Time                    int64
 		ChunkWidth, ChunkHeight uint32
-		Reserved                uint16
+		_                       uint32 // Reserved
+		_                       uint32 // Reserved
+		_                       uint32 // Reserved
+		_                       uint32 // Reserved
+		_                       uint32 // Reserved
+		_                       uint32 // Reserved
+		_                       uint32 // Reserved
+		_                       uint32 // Reserved
 	}{
 		MagicNumber: 1128616528, // ASCII "PREC" in little endian
 		Version:     1,
@@ -228,36 +238,39 @@ func (cdw *canvasDiskWriter) handleSetImage(img image.Image, valid bool) error {
 		return fmt.Errorf("Listener is closed")
 	}
 
-	// If image is not in sync with the game, ignore it. A valid image will come later
+	// If image is not in sync with the game, ignore it. A valid image will follow later
 	if !valid {
 		return nil
 	}
 
-	bounds := img.Bounds()
-	arrayRGB := imageToRGBArray(img) // TODO: Also write paletted image if there is one
+	rawBuffer := &bytes.Buffer{}
+	err := bmp.Encode(rawBuffer, img) // TODO: Add extra case for paletted, so it doesn't write the palette for each image
+	if err != nil {
+		return fmt.Errorf("Can't create image for %v: %v", cdw.File.Name(), err)
+	}
 
-	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
-		DataType      uint8
-		Time          int64
-		X, Y          int32
-		Width, Height uint16
-		Size          uint32 // Size of the RGB data in bytes
+	bounds := img.Bounds()
+
+	err = binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
+		DataType uint8
+		Time     int64
+		X, Y     int32
+		Size     uint32
 	}{
 		DataType: 30,
 		Time:     time.Now().UnixNano(),
 		X:        int32(bounds.Min.X),
 		Y:        int32(bounds.Min.Y),
-		Width:    uint16(bounds.Dx()),
-		Height:   uint16(bounds.Dy()),
-		Size:     uint32(len(arrayRGB)),
+		Size:     uint32(rawBuffer.Len()),
 	})
 	if err != nil {
 		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
 	}
-	err = binary.Write(cdw.ZipWriter, binary.LittleEndian, arrayRGB)
+	_, err = cdw.ZipWriter.Write(rawBuffer.Bytes())
 	if err != nil {
 		return fmt.Errorf("Can't write to file %v: %v", cdw.File.Name(), err)
 	}
+
 	return nil
 }
 

@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -27,6 +28,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	_ "golang.org/x/image/bmp"
 
 	gzip "github.com/klauspost/pgzip"
 )
@@ -73,7 +76,14 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 			Version                 uint16 // File format version
 			Time                    int64
 			ChunkWidth, ChunkHeight uint32
-			Reserved                uint16
+			_                       uint32 // Reserved // TODO: Somehow store endTime here
+			_                       uint32 // Reserved
+			_                       uint32 // Reserved
+			_                       uint32 // Reserved
+			_                       uint32 // Reserved
+			_                       uint32 // Reserved
+			_                       uint32 // Reserved
+			_                       uint32 // Reserved
 		}
 		err := binary.Read(reader, binary.LittleEndian, &dat)
 		if err != nil {
@@ -218,29 +228,42 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 
 							case 30: // SetImage
 								var dat struct {
-									X, Y          int32
-									Width, Height uint16
-									Size          uint32 // Size of the RGB data in bytes
+									X, Y int32
+									Size uint32
 								}
 								err := binary.Read(zipReader, binary.LittleEndian, &dat)
 								if err != nil {
 									log.Warnf("Error while reading file %v: %v", fileName, err)
 									return false, false
 								}
-								imageData := make([]byte, dat.Size)
-								err = binary.Read(zipReader, binary.LittleEndian, imageData)
+								rawBytes := make([]byte, dat.Size)
+								_, err = io.ReadFull(zipReader, rawBytes)
 								if err != nil {
 									log.Warnf("Error while reading file %v: %v", fileName, err)
 									return false, false
 								}
-								rect := image.Rect(int(dat.X), int(dat.Y), int(dat.X)+int(dat.Width), int(dat.Y)+int(dat.Height))
-								img, err := rgbArrayToImage(imageData, rect)
+								img, imageFormat, err := image.Decode(bytes.NewBuffer(rawBytes))
 								if err != nil {
-									log.Warnf("Error while reading image from %v: %v", fileName, err)
+									log.Warnf("Error while reading %v image from %v: %v", imageFormat, fileName, err)
 									return false, false
 								}
-								cdr.Canvas.signalDownload(rect)
+
+								// Move image to X and Y
+								switch img := img.(type) {
+								case *image.Paletted:
+									img.Rect = img.Rect.Add(image.Point{int(dat.X), int(dat.Y)})
+								case *image.RGBA:
+									img.Rect = img.Rect.Add(image.Point{int(dat.X), int(dat.Y)})
+								default:
+									log.Warnf("Unknown internal image type %T in %v", img, fileName)
+								}
+
+								cdr.Canvas.signalDownload(img.Bounds())
 								cdr.Canvas.setImage(img, false, true)
+
+							default:
+								log.Warnf("Found invalid data type %v in %v", dataType, fileName)
+								return false, false
 
 							}
 						}
@@ -256,11 +279,16 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 			}
 			// Iterated through all files without getting to curTime. Wait for next curTime change
 			log.Tracef("Reached end of all recording files of %v", shortName)
-			tempTime, ok := <-cdr.TimeChan
-			if !ok {
-				return // Close goroutine
+			for {
+				tempTime, ok := <-cdr.TimeChan
+				if !ok {
+					return // Close goroutine
+				}
+				if tempTime.Before(curTime) {
+					break // Start from the beginning again
+				}
+				curTime = tempTime
 			}
-			curTime = tempTime
 		}
 	}()
 
