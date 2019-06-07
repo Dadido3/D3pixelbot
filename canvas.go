@@ -105,7 +105,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 		switch chunk.getQueryState(resetTime) {
 		case chunkDelete:
 			can.Lock()
-			delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min))
+			//delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min)) // TODO: Add option to not delete old chunks (For replay)
 			can.Unlock()
 		case chunkDownload:
 			select {
@@ -614,11 +614,10 @@ func (can *canvas) invalidateAll() error {
 	}
 
 	can.RLock()
-	defer can.RUnlock()
-
 	for _, chunk := range can.Chunks {
 		chunk.invalidateImage()
 	}
+	can.RUnlock()
 
 	// Forward event to broadcaster goroutine
 	can.EventChan <- canvasEventInvalidateAll{}

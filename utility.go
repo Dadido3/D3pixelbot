@@ -124,6 +124,53 @@ func copyImage(img image.Image) (image.Image, error) {
 	return nil, fmt.Errorf("Incompatible image type %T", img)
 }
 
+// Returns whether two images are the same.
+// Only works with Paletted and RGBA yet.
+//
+// For speed reasons this function only compares the memory, therefore it can return false on images that look the same from the outside. (like Paletted vs RGBA, subimages)
+func compareImages(a, b image.Image) bool {
+	switch a := a.(type) {
+	case *image.Paletted:
+		b, ok := b.(*image.Paletted)
+		if !ok {
+			return false
+		}
+		if a.Stride != b.Stride {
+			return false
+		}
+		if !a.Rect.Eq(b.Rect) {
+			return false
+		}
+		if !isPaletteEqual(a.Palette, b.Palette) {
+			return false
+		}
+		if !bytes.Equal(a.Pix, b.Pix) {
+			return false
+		}
+
+		return true
+
+	case *image.RGBA:
+		b, ok := b.(*image.RGBA)
+		if !ok {
+			return false
+		}
+		if a.Stride != b.Stride {
+			return false
+		}
+		if !a.Rect.Eq(b.Rect) {
+			return false
+		}
+		if !bytes.Equal(a.Pix, b.Pix) {
+			return false
+		}
+
+		return true
+	}
+
+	return false
+}
+
 // Converts any image to an RGBA array
 func imageToRGBAArray(img image.Image) []byte {
 	rect := img.Bounds()
@@ -189,16 +236,23 @@ func rgbArrayToImage(imageData []byte, rect image.Rectangle) (*image.RGBA, error
 		return nil, fmt.Errorf("Incorrect size of array (Expected %v, got %v)", rect.Dx()*rect.Dy()*3, len(imageData))
 	}
 
+	dstPix := make([]byte, rect.Dx()*rect.Dy()*4)
+
 	img := &image.RGBA{
-		Pix:    make([]byte, rect.Dx()*rect.Dy()*4),
+		Pix:    dstPix,
 		Rect:   rect,
 		Stride: rect.Dx() * 4,
 	}
 
 	j := 0
-	for i := 0; i+2 < len(imageData); i += 3 {
-		img.Pix[j+0], img.Pix[j+1], img.Pix[j+2], img.Pix[j+3] = imageData[i+0], imageData[i+1], imageData[i+2], 255
-		j += 4
+	for i := 0; i <= len(dstPix)-4; i += 4 {
+		dstPix[i] = imageData[j]
+		j++
+		dstPix[i+1] = imageData[j]
+		j++
+		dstPix[i+2] = imageData[j]
+		j++
+		dstPix[i+3] = 255
 	}
 
 	return img, nil

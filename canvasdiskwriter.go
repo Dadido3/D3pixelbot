@@ -234,7 +234,7 @@ func (cdw *canvasDiskWriter) handleSetImage(img image.Image, valid bool) error {
 	}
 
 	bounds := img.Bounds()
-	arrayRGB := imageToRGBArray(img)
+	arrayRGB := imageToRGBArray(img) // TODO: Also write paletted image if there is one
 
 	err := binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
 		DataType      uint8

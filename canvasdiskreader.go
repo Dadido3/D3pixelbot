@@ -228,7 +228,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 									return false, false
 								}
 								imageData := make([]byte, dat.Size)
-								err = binary.Read(zipReader, binary.LittleEndian, &imageData)
+								err = binary.Read(zipReader, binary.LittleEndian, imageData)
 								if err != nil {
 									log.Warnf("Error while reading file %v: %v", fileName, err)
 									return false, false
@@ -265,10 +265,11 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	}()
 
 	// Test
-	tic := time.NewTicker(10 * time.Millisecond)
+	//tic := time.NewTicker(10 * time.Millisecond)
 	go func() {
 		someTime := startRecTime
-		for range tic.C {
+		//for range tic.C {
+		for {
 			someTime = someTime.Add(1 * time.Second)
 			cdr.TimeChan <- someTime
 		}

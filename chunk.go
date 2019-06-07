@@ -23,8 +23,6 @@ import (
 	"image/draw"
 	"sync"
 	"time"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 const (
@@ -174,7 +172,7 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
 
 		// If images are equal, copy nothing
-		if cmp.Equal(chu.Image, newImg) && len(chu.PixelQueue) == 0 {
+		if compareImages(chu.Image, newImg) && len(chu.PixelQueue) == 0 {
 			chu.PixelQueue = []pixelQueueElement{}
 			chu.Downloading = false
 			chu.Valid = true
@@ -188,7 +186,7 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 		draw.Draw(newImg, chu.Rect, srcImg, chu.Rect.Min, draw.Over)
 
 		// If images are equal, copy nothing
-		if cmp.Equal(chu.Image, newImg) && len(chu.PixelQueue) == 0 { // TODO: Compare seems slow, check it
+		if compareImages(chu.Image, newImg) && len(chu.PixelQueue) == 0 { // TODO: Compare seems slow, check it
 			chu.PixelQueue = []pixelQueueElement{}
 			chu.Downloading = false
 			chu.Valid = true

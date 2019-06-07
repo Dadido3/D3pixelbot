@@ -135,7 +135,7 @@ class PixCanvas : Behavior {
 		}
 	}
 
-	function InvalidateRect(event) {
+	function eventInvalidateRect(event) {
 		var elem = this.getChunk(event.X, event.Y); // TODO: Get chunks in whole rectangle
 		if (elem == null) {
 			return;
@@ -143,7 +143,7 @@ class PixCanvas : Behavior {
 		elem.attributes.addClass("invalid");
 	}
 
-	function RevalidateRect(event) {
+	function eventRevalidateRect(event) {
 		var elem = this.getChunk(event.X, event.Y); // TODO: Get chunks in whole rectangle
 		if (elem == null) {
 			return;
