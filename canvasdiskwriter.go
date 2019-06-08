@@ -80,8 +80,7 @@ func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, err
 		Version                 uint16 // File format version
 		Time                    int64
 		ChunkWidth, ChunkHeight uint32
-		_                       uint32 // Reserved
-		_                       uint32 // Reserved
+		OriginX, OriginY        int32  // Origin/Offset of the chunks
 		_                       uint32 // Reserved
 		_                       uint32 // Reserved
 		_                       uint32 // Reserved
@@ -94,6 +93,8 @@ func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, err
 		Time:        time.Now().UnixNano(),
 		ChunkWidth:  uint32(can.ChunkSize.X),
 		ChunkHeight: uint32(can.ChunkSize.Y),
+		OriginX:     int32(can.Origin.X),
+		OriginY:     int32(can.Origin.Y),
 	})
 	if err != nil {
 		zipWriter.Close()

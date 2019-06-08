@@ -20,26 +20,26 @@ import "image"
 
 // TODO: Use better names than "chunkSize", ...
 
-type pixelSize image.Point // Size of something in pixels
+type pixelSize image.Point // Size of something measured in pixels
 
 type (
-	chunkCoordinate image.Point               // Coordinate of something in chunks
-	chunkRectangle  struct{ image.Rectangle } // A rectangle something in chunks
-	chunkSize       image.Point               // A size of something in chunks
+	chunkCoordinate image.Point               // Coordinate of something measured in chunks
+	chunkRectangle  struct{ image.Rectangle } // A rectangle something measured in chunks
+	chunkSize       image.Point               // A size of something measured in chunks
 )
 
 // Converts a pixel coordinate into a chunk coordinate containing the given pixel
-func (ps pixelSize) getChunkCoord(coord image.Point) chunkCoordinate {
+func (ps pixelSize) getChunkCoord(coord image.Point, origin image.Point) chunkCoordinate {
 	return chunkCoordinate{
-		X: divideFloor(coord.X, ps.X),
-		Y: divideFloor(coord.Y, ps.Y),
+		X: divideFloor(coord.X+origin.X, ps.X),
+		Y: divideFloor(coord.Y+origin.Y, ps.Y),
 	}
 }
 
 // Converts a pixel rectangle into the closest possible rectangle in chunk coordinates.
 // The given pixel rectangle will always be inside or equal to the resulting chunk rectangle.
-func (ps pixelSize) getOuterChunkRect(rect image.Rectangle) chunkRectangle {
-	rectTemp := rect.Canon()
+func (ps pixelSize) getOuterChunkRect(rect image.Rectangle, origin image.Point) chunkRectangle {
+	rectTemp := rect.Canon().Add(origin)
 
 	min := image.Point{
 		X: divideFloor(rectTemp.Min.X, ps.X),
@@ -60,8 +60,8 @@ func (ps pixelSize) getOuterChunkRect(rect image.Rectangle) chunkRectangle {
 // The resulting chunk rectangle will always be inside or equal to the given pixel rectangle.
 //
 // Be aware that the resulting rectangle can have a length of 0 in any axis!
-func (ps pixelSize) getInnerChunkRect(rect image.Rectangle) chunkRectangle {
-	rectTemp := rect.Canon()
+func (ps pixelSize) getInnerChunkRect(rect image.Rectangle, origin image.Point) chunkRectangle {
+	rectTemp := rect.Canon().Add(origin)
 
 	min := image.Point{
 		X: divideCeil(rectTemp.Min.X, ps.X),
@@ -86,7 +86,7 @@ func (ps pixelSize) getInnerChunkRect(rect image.Rectangle) chunkRectangle {
 }
 
 // Converts a rectangle from chunk coordinates into pixel coordinates
-func (ps chunkRectangle) getPixelRectangle(chunkSize pixelSize) image.Rectangle {
+func (ps chunkRectangle) getPixelRectangle(chunkSize pixelSize, origin image.Point) image.Rectangle {
 	rectTemp := ps.Canon()
 
 	rectTemp.Min.X *= chunkSize.X
@@ -94,7 +94,7 @@ func (ps chunkRectangle) getPixelRectangle(chunkSize pixelSize) image.Rectangle 
 	rectTemp.Max.X *= chunkSize.X
 	rectTemp.Max.Y *= chunkSize.Y
 
-	return image.Rectangle(rectTemp)
+	return image.Rectangle(rectTemp).Sub(origin)
 }
 
 // Converts a size in chunks into a size in pixels

@@ -17,10 +17,11 @@
 package main
 
 import (
+	"image"
 	"testing"
 )
 
 func Test_newCanvas(t *testing.T) {
-	can, _ := newCanvas(pixelSize{64, 64}, pixelcanvasioCanvasRect)
+	can, _ := newCanvas(pixelSize{64, 64}, image.Point{}, pixelcanvasioCanvasRect)
 	defer can.Close()
 }

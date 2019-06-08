@@ -86,6 +86,7 @@ type canvas struct {
 	ClosedMutex sync.RWMutex
 
 	ChunkSize pixelSize
+	Origin    image.Point     // Offset of the chunks in pixels. Positive values move the chunks to the top left.
 	Rect      image.Rectangle // Valid area of the canvas // TODO: Enforce canvas limit
 	Chunks    map[chunkCoordinate]*chunk
 
@@ -93,13 +94,14 @@ type canvas struct {
 	ChunkRequestChan chan *chunk      // Chunk download requests that go to the game connection // TODO: Convert it to a method, not a channel
 }
 
-func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan *chunk) {
+func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectangle) (*canvas, <-chan *chunk) {
 	can := &canvas{
 		ChunkSize:        chunkSize,
+		Origin:           origin,
 		Rect:             canvasRect,
 		Chunks:           make(map[chunkCoordinate]*chunk),
 		EventChan:        make(chan interface{}), // TODO: Determine optimal chan size (Add waitGroup when channel buffering is enabled!)
-		ChunkRequestChan: make(chan *chunk, 5),
+		ChunkRequestChan: make(chan *chunk, 50),
 	}
 
 	handleChunk := func(chunk *chunk, resetTime bool) {
@@ -131,7 +133,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 					// Close goroutine, as the channel is gone
 					return
 				}
-				chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+				chunkRect := can.ChunkSize.getOuterChunkRect(rect, can.Origin)
 				chunks, err := can.getChunks(chunkRect, true, true)
 				if err == nil {
 					for _, chunk := range chunks {
@@ -151,12 +153,15 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 	// Gets the list of virtual chunks that intersect with a given rectangle
 	getVirtualChunks := func(state *canvasListenerState, rect image.Rectangle, createNew bool) map[image.Rectangle]int {
 		vcs := map[image.Rectangle]int{}
-		chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+		chunkRect := can.ChunkSize.getOuterChunkRect(rect, can.Origin)
 		for iy := chunkRect.Min.Y; iy < chunkRect.Max.Y; iy++ {
 			for ix := chunkRect.Min.X; ix < chunkRect.Max.X; ix++ {
+				min := image.Point{ix*can.ChunkSize.X - can.Origin.X, iy*can.ChunkSize.Y - can.Origin.X}
+				max := min.Add(image.Point{can.ChunkSize.X, can.ChunkSize.Y})
+
 				vc := image.Rectangle{
-					Min: image.Point{ix * can.ChunkSize.X, iy * can.ChunkSize.Y},
-					Max: image.Point{(ix + 1) * can.ChunkSize.X, (iy + 1) * can.ChunkSize.Y},
+					Min: min,
+					Max: max,
 				}
 
 				vcID, ok := state.VirtualChunks[vc] // Get ID from already existing virtual chunk
@@ -339,7 +344,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 
 						// Additionally send images for the new chunks if possible
 						for rect, id := range createChunks {
-							chunkCoord := can.ChunkSize.getChunkCoord(rect.Min)
+							chunkCoord := can.ChunkSize.getChunkCoord(rect.Min, can.Origin)
 							chunk, err := can.getChunk(chunkCoord, false)
 							if err == nil {
 								img, valid, _, err := chunk.getImageCopy(false)
@@ -442,7 +447,7 @@ func (can *canvas) getChunk(coord chunkCoordinate, createIfNonexistent bool) (*c
 	}
 
 	if createIfNonexistent {
-		min := image.Point{coord.X * can.ChunkSize.X, coord.Y * can.ChunkSize.Y}
+		min := image.Point{coord.X*can.ChunkSize.X - can.Origin.X, coord.Y*can.ChunkSize.Y - can.Origin.X}
 		max := min.Add(image.Point{can.ChunkSize.X, can.ChunkSize.Y})
 		chunk := newChunk(
 			image.Rectangle{
@@ -493,7 +498,7 @@ func (can *canvas) getAllChunks() []*chunk {
 }
 
 func (can *canvas) getPixel(pos image.Point) (color.Color, error) {
-	chunkCoord := can.ChunkSize.getChunkCoord(pos)
+	chunkCoord := can.ChunkSize.getChunkCoord(pos, can.Origin)
 
 	chunk, err := can.getChunk(chunkCoord, false)
 	if err != nil {
@@ -504,7 +509,7 @@ func (can *canvas) getPixel(pos image.Point) (color.Color, error) {
 }
 
 func (can *canvas) getPixelIndex(pos image.Point) (uint8, error) {
-	chunkCoord := can.ChunkSize.getChunkCoord(pos)
+	chunkCoord := can.ChunkSize.getChunkCoord(pos, can.Origin)
 
 	chunk, err := can.getChunk(chunkCoord, false)
 	if err != nil {
@@ -529,7 +534,7 @@ func (can *canvas) setPixel(pos image.Point, col color.Color) error {
 		}
 	}()
 
-	chunkCoord := can.ChunkSize.getChunkCoord(pos)
+	chunkCoord := can.ChunkSize.getChunkCoord(pos, can.Origin)
 
 	chunk, err := can.getChunk(chunkCoord, false)
 	if err != nil {
@@ -552,7 +557,7 @@ func (can *canvas) setImage(img image.Image, createIfNonexistent, ignoreNonexist
 		return fmt.Errorf("Canvas is closed")
 	}
 
-	chunkRect := can.ChunkSize.getInnerChunkRect(img.Bounds())
+	chunkRect := can.ChunkSize.getInnerChunkRect(img.Bounds(), can.Origin)
 	chunks, err := can.getChunks(chunkRect, createIfNonexistent, ignoreNonexistent)
 	if err != nil {
 		return fmt.Errorf("Can't get chunks from rectangle %v: %v", img.Bounds(), err)
@@ -593,7 +598,7 @@ func (can *canvas) setImage(img image.Image, createIfNonexistent, ignoreNonexist
 // If onlyIfValid is set to true, the function will fail if there are invalid chunks inside.
 // If onlyIfValid is set to false, invalid chunks will be drawn transparent or with older data.
 func (can *canvas) getImageCopy(rect image.Rectangle, onlyIfValid, ignoreNonexistent bool) (*image.RGBA, error) {
-	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+	chunkRect := can.ChunkSize.getOuterChunkRect(rect, can.Origin)
 	chunks, err := can.getChunks(chunkRect, false, ignoreNonexistent)
 	if err != nil {
 		return nil, fmt.Errorf("Can't get chunks from rectangle %v: %v", rect, err)
@@ -631,7 +636,7 @@ func (can *canvas) invalidateRect(rect image.Rectangle) error {
 		}
 	}()
 
-	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+	chunkRect := can.ChunkSize.getOuterChunkRect(rect, can.Origin)
 	chunks, err := can.getChunks(chunkRect, false, true)
 	if err != nil {
 		return fmt.Errorf("Can't get chunks from rectangle %v: %v", rect, err)
@@ -661,7 +666,7 @@ func (can *canvas) revalidateRect(rect image.Rectangle) error {
 		}
 	}()
 
-	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+	chunkRect := can.ChunkSize.getOuterChunkRect(rect, can.Origin)
 	chunks, err := can.getChunks(chunkRect, false, true)
 	if err != nil {
 		return fmt.Errorf("Can't get chunks from rectangle %v: %v", rect, err)
@@ -699,7 +704,7 @@ func (can *canvas) invalidateAll() error {
 
 // Returns true if the all intersecting chunks are valid and existent
 func (can *canvas) isValid(rect image.Rectangle) bool {
-	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+	chunkRect := can.ChunkSize.getOuterChunkRect(rect, can.Origin)
 	chunks, err := can.getChunks(chunkRect, false, false)
 	if err != nil {
 		return false
@@ -739,7 +744,7 @@ func (can *canvas) signalDownload(rect image.Rectangle) ([]*chunk, error) {
 		}
 	}()
 
-	chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+	chunkRect := can.ChunkSize.getOuterChunkRect(rect, can.Origin)
 	chunks, err := can.getChunks(chunkRect, true, true)
 	if err != nil {
 		return nil, fmt.Errorf("Can't get chunks from rectangle %v: %v", rect, err)

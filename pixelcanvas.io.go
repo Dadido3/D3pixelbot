@@ -35,9 +35,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var pixelcanvasioChunkSize = pixelSize{64, 64}
+var pixelcanvasioChunkSize = pixelSize{64, 64} // Not the chunk size that the canvas is initialized with
 var pixelcanvasioChunkCollectionRadius = 7
 var pixelcanvasioChunkCollectionSize = chunkSize{pixelcanvasioChunkCollectionRadius*2 + 1, pixelcanvasioChunkCollectionRadius*2 + 1} // Arraysize of chunks that's returned on the bigchunk request
+var pixelcanvasioChunkOffset = image.Point{pixelcanvasioChunkCollectionRadius * pixelcanvasioChunkSize.X, pixelcanvasioChunkCollectionRadius * pixelcanvasioChunkSize.Y}
+var pixelcanvasioChunkCollectionPixelSize = pixelSize{pixelcanvasioChunkCollectionSize.X * pixelcanvasioChunkSize.X, pixelcanvasioChunkCollectionSize.Y * pixelcanvasioChunkSize.Y}
 var pixelcanvasioCanvasRect = image.Rectangle{image.Point{-999999, -999999}, image.Point{1000000, 1000000}}
 
 var pixelcanvasioPalette = []color.Color{
@@ -98,7 +100,7 @@ func newPixelcanvasio() (connection, *canvas) {
 
 	pixelcanvasioConnection = con
 
-	con.Canvas, con.ChunkDownloadChan = newCanvas(pixelcanvasioChunkSize, pixelcanvasioCanvasRect)
+	con.Canvas, con.ChunkDownloadChan = newCanvas(pixelcanvasioChunkCollectionPixelSize, pixelcanvasioChunkOffset, pixelcanvasioCanvasRect)
 
 	// Main goroutine that handles queries and timed things
 	con.QuitWaitgroup.Add(1)
@@ -133,14 +135,14 @@ func newPixelcanvasio() (connection, *canvas) {
 	downloadWaitgroup := sync.WaitGroup{}
 	downloadLimit := make(chan struct{}, 3) // Limit maximum amount of simultaneous downloads to 3
 	handleDownload := func(chu *chunk) error {
-		// Round to nearest bigchunk
+		// Round to nearest bigchunk // TODO: Simplify, especially because there is now an origin
 		ccOffset := image.Point(pixelcanvasioChunkSize).Mul(pixelcanvasioChunkCollectionRadius)
-		cc := pixelcanvasioChunkCollectionSize.getPixelSize(pixelcanvasioChunkSize).getChunkCoord(chu.Rect.Min.Add(ccOffset))
+		cc := pixelcanvasioChunkCollectionSize.getPixelSize(pixelcanvasioChunkSize).getChunkCoord(chu.Rect.Min.Add(ccOffset), image.Point{})
 		cc.X, cc.Y = cc.X*pixelcanvasioChunkCollectionSize.X, cc.Y*pixelcanvasioChunkCollectionSize.Y
 		ca := chunkRectangle{image.Rectangle{
 			Min: image.Point(cc).Add(image.Point{-pixelcanvasioChunkCollectionRadius, -pixelcanvasioChunkCollectionRadius}),
 			Max: image.Point(cc).Add(image.Point{pixelcanvasioChunkCollectionRadius + 1, pixelcanvasioChunkCollectionRadius + 1}),
-		}}.getPixelRectangle(pixelcanvasioChunkSize)
+		}}.getPixelRectangle(pixelcanvasioChunkSize, image.Point{})
 
 		// Signalling must not be in the goroutine, so that the download isn't started several times because of neighbors
 		chunks, err := con.Canvas.signalDownload(ca)

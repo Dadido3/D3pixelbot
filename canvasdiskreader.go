@@ -53,6 +53,16 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("Can't read from %v", fileDirectory)
 	}
+
+	// Filter out files
+	tempFiles := []os.FileInfo{}
+	for _, f := range files {
+		if filepath.Ext(f.Name()) == ".pixrec" {
+			tempFiles = append(tempFiles, f)
+		}
+	}
+	files = tempFiles
+
 	if len(files) <= 0 {
 		return nil, nil, fmt.Errorf("Can't find any recordings in %v", fileDirectory)
 	}
@@ -70,15 +80,14 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	}
 	defer zipReader.Close()
 
-	parseHeader := func(reader io.Reader) (time.Time, pixelSize, error) {
+	parseHeader := func(reader io.Reader) (time.Time, pixelSize, image.Point, error) {
 		var dat struct {
 			MagicNumber             uint32
 			Version                 uint16 // File format version
 			Time                    int64
 			ChunkWidth, ChunkHeight uint32
+			OriginX, OriginY        int32  // Origin/Offset of the chunks
 			_                       uint32 // Reserved // TODO: Somehow store endTime here
-			_                       uint32 // Reserved
-			_                       uint32 // Reserved
 			_                       uint32 // Reserved
 			_                       uint32 // Reserved
 			_                       uint32 // Reserved
@@ -87,26 +96,26 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 		}
 		err := binary.Read(reader, binary.LittleEndian, &dat)
 		if err != nil {
-			return time.Time{}, pixelSize{}, fmt.Errorf("Error while reading file: %v", err)
+			return time.Time{}, pixelSize{}, image.Point{}, fmt.Errorf("Error while reading file: %v", err)
 		}
 
 		if dat.MagicNumber != 1128616528 { // ASCII "PREC" in little endian
-			return time.Time{}, pixelSize{}, fmt.Errorf("Wrong file format")
+			return time.Time{}, pixelSize{}, image.Point{}, fmt.Errorf("Wrong file format")
 		}
 
 		if dat.Version > 1 {
-			return time.Time{}, pixelSize{}, fmt.Errorf("Version is newer")
+			return time.Time{}, pixelSize{}, image.Point{}, fmt.Errorf("Version is newer")
 		}
 
-		return time.Unix(0, dat.Time), pixelSize{int(dat.ChunkWidth), int(dat.ChunkHeight)}, nil
+		return time.Unix(0, dat.Time), pixelSize{int(dat.ChunkWidth), int(dat.ChunkHeight)}, image.Point{int(dat.OriginX), int(dat.OriginY)}, nil
 	}
 
-	startRecTime, chunkSize, err := parseHeader(zipReader)
+	startRecTime, chunkSize, origin, err := parseHeader(zipReader)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cdr.Canvas, _ = newCanvas(chunkSize, image.Rect(math.MinInt32, math.MinInt32, math.MaxInt32, math.MaxInt32))
+	cdr.Canvas, _ = newCanvas(chunkSize, origin, image.Rect(math.MinInt32, math.MinInt32, math.MaxInt32, math.MaxInt32))
 
 	go func() {
 		defer log.Tracef("Closed recording goroutine of %v", shortName)
@@ -118,9 +127,6 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 			for _, recording := range files {
 				// Find first recording that starts at the right time
 				restart, close := func() (restart, close bool) {
-					if filepath.Ext(recording.Name()) != ".pixrec" {
-						return false, false
-					}
 
 					// TODO: Jump over files that end before curTime
 
@@ -151,9 +157,17 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 					}
 					defer zipReader.Close()
 
-					recTime, _, err := parseHeader(zipReader)
+					recTime, chunkSize, origin, err := parseHeader(zipReader)
 					if err != nil {
 						log.Warn(err)
+						return false, false
+					}
+					if cdr.Canvas.ChunkSize != chunkSize {
+						log.Warnf("Chunk size differs in recording %v. From %v to %v. Separate this and similar files from the others to play it", fileName, cdr.Canvas.ChunkSize, chunkSize)
+						return false, false
+					}
+					if cdr.Canvas.Origin != origin {
+						log.Warnf("Origin differs in recording %v. From %v to %v. Separate this and similar files from the others to play it", fileName, cdr.Canvas.Origin, origin)
 						return false, false
 					}
 
