@@ -34,6 +34,7 @@
         "runtimes",
         "sciter",
         "tevino",
-        "timelapses"
+        "timelapses",
+        "unregister"
     ]
 }

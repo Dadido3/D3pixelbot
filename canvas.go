@@ -49,7 +49,8 @@ type canvasEventRevalidate struct {
 }
 
 type canvasEventListenerSubscribe struct {
-	Listener canvasListener
+	Listener         canvasListener
+	UseVirtualChunks bool
 }
 
 type canvasEventListenerUnsubscribe struct {
@@ -57,26 +58,26 @@ type canvasEventListenerUnsubscribe struct {
 }
 
 type canvasEventListenerRects struct {
-	Listener   canvasListener
-	Rects      []image.Rectangle
-	ForwardAll bool
+	Listener canvasListener
+	Rects    []image.Rectangle
 }
 
 type canvasListener interface {
-	handleChunksChange(create, remove []image.Rectangle) error
+	handleChunksChange(create, remove map[image.Rectangle]int) error
 
 	handleInvalidateAll() error
-	handleInvalidateRect(rect image.Rectangle) error
-	handleSetImage(img image.Image, valid bool) error
-	handleSetPixel(pos image.Point, color color.Color) error
-	handleSignalDownload(rect image.Rectangle) error
-	handleRevalidateRect(rect image.Rectangle) error
+	handleInvalidateRect(rect image.Rectangle, vcIDs []int) error
+	handleSetImage(img image.Image, valid bool, vcIDs []int) error
+	handleSetPixel(pos image.Point, color color.Color, vcID int) error
+	handleSignalDownload(rect image.Rectangle, vcIDs []int) error
+	handleRevalidateRect(rect image.Rectangle, vcIDs []int) error
 }
 
 type canvasListenerState struct {
-	Rects      []image.Rectangle        // Rectangles that the listener needs to be kept up to do date with. The canvas will keep those rectangles in sync with the game
-	Chunks     map[image.Rectangle]bool // Chunks rectangles the the listener knows
-	ForwardAll bool                     // True: the listeners wants to get all events, even the ones outside his rectangles
+	Rects                 []image.Rectangle       // Rectangles that the listener needs to be kept up to do date with. The canvas will keep those rectangles in sync with the game
+	VirtualChunks         map[image.Rectangle]int // Chunk rectangles with IDs that the listener knows of, only used when UseVirtualChunks is set
+	VirtualChunkIDCounter int                     // Counter for new chunk IDs
+	UseVirtualChunks      bool                    // True: Let the canvas manage chunks for the listener
 }
 
 type canvas struct {
@@ -138,13 +139,7 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 					}
 				}
 			case <-ticker.C: // Query all chunks for state changes every minute
-				// Make copy of the chunks map
-				can.RLock()
-				chunks := make(map[chunkCoordinate]*chunk)
-				for k, v := range can.Chunks {
-					chunks[k] = v
-				}
-				can.RUnlock()
+				chunks := can.getAllChunks()
 				for _, chunk := range chunks {
 					handleChunk(chunk, false) // Handle chunks, but don't reset their timer
 				}
@@ -153,12 +148,41 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 		}
 	}()
 
+	// Gets the list of virtual chunks that intersect with a given rectangle
+	getVirtualChunks := func(state *canvasListenerState, rect image.Rectangle, createNew bool) map[image.Rectangle]int {
+		vcs := map[image.Rectangle]int{}
+		chunkRect := can.ChunkSize.getOuterChunkRect(rect)
+		for iy := chunkRect.Min.Y; iy < chunkRect.Max.Y; iy++ {
+			for ix := chunkRect.Min.X; ix < chunkRect.Max.X; ix++ {
+				vc := image.Rectangle{
+					Min: image.Point{ix * can.ChunkSize.X, iy * can.ChunkSize.Y},
+					Max: image.Point{(ix + 1) * can.ChunkSize.X, (iy + 1) * can.ChunkSize.Y},
+				}
+
+				vcID, ok := state.VirtualChunks[vc] // Get ID from already existing virtual chunk
+
+				if ok {
+					vcs[vc] = vcID
+					continue
+				}
+
+				if createNew {
+					vcID = state.VirtualChunkIDCounter
+					state.VirtualChunkIDCounter++
+					vcs[vc] = vcID
+				}
+			}
+		}
+		return vcs
+	}
+
 	// Goroutine that handles event broadcasting to listeners
 	// It can directly broadcast events from the EventChan, or it can create new events for specific listeners.
+	// If requested (by the UseVirtualChunks flag) the goroutine will handle all the creation and deletion of (virtual) chunks for the listener.
 	go func() {
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
-		listeners := map[canvasListener]canvasListenerState{} // Events get forwarded to these listeners
+		listeners := map[canvasListener]*canvasListenerState{} // Events get forwarded to these listeners
 		defer close(rectQueryChan)
 
 		for {
@@ -171,42 +195,47 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 				}
 				switch event := event.(type) {
 				case canvasEventSetPixel:
+					//log.Tracef("pixel %v\n", event.Pos)
 					for listener, state := range listeners {
-						if state.ForwardAll {
-							listener.handleSetPixel(event.Pos, event.Color)
+						if !state.UseVirtualChunks {
+							listener.handleSetPixel(event.Pos, event.Color, 0)
 							continue
 						}
-						for rect := range state.Chunks {
-							if event.Pos.In(rect) {
-								listener.handleSetPixel(event.Pos, event.Color)
-								break
-							}
+						vcs := getVirtualChunks(state, image.Rectangle{event.Pos, event.Pos.Add(image.Point{1, 1})}, false)
+						for _, vc := range vcs { // Assume that at most one virtual chunk is returned
+							//log.Tracef("pixel %v at vcID %v\n", event.Pos, vc)
+							listener.handleSetPixel(event.Pos, event.Color, vc)
+							break
 						}
 					}
 				case canvasEventSetImage:
 					for listener, state := range listeners {
-						if state.ForwardAll {
-							listener.handleSetImage(event.Image, true)
+						if !state.UseVirtualChunks {
+							listener.handleSetImage(event.Image, true, []int{})
 							continue
 						}
-						for rect := range state.Chunks {
-							if event.Image.Bounds().Overlaps(rect) {
-								listener.handleSetImage(event.Image, true)
-								break
+						vcs := getVirtualChunks(state, event.Image.Bounds(), false)
+						if len(vcs) > 0 {
+							vcsSlice := []int{}
+							for _, vc := range vcs {
+								vcsSlice = append(vcsSlice, vc)
 							}
+							listener.handleSetImage(event.Image, true, vcsSlice)
 						}
 					}
 				case canvasEventInvalidateRect:
 					for listener, state := range listeners {
-						if state.ForwardAll {
-							listener.handleInvalidateRect(event.Rect)
+						if !state.UseVirtualChunks {
+							listener.handleInvalidateRect(event.Rect, []int{})
 							continue
 						}
-						for rect := range state.Chunks {
-							if event.Rect.Overlaps(rect) {
-								listener.handleInvalidateRect(event.Rect)
-								break
+						vcs := getVirtualChunks(state, event.Rect, false)
+						if len(vcs) > 0 {
+							vcsSlice := []int{}
+							for _, vc := range vcs {
+								vcsSlice = append(vcsSlice, vc)
 							}
+							listener.handleInvalidateRect(event.Rect, vcsSlice)
 						}
 					}
 				case canvasEventInvalidateAll:
@@ -215,33 +244,51 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 					}
 				case canvasEventRevalidate:
 					for listener, state := range listeners {
-						if state.ForwardAll {
-							listener.handleRevalidateRect(event.Rect)
+						if !state.UseVirtualChunks {
+							listener.handleRevalidateRect(event.Rect, []int{})
 							continue
 						}
-						for rect := range state.Chunks {
-							if event.Rect.Overlaps(rect) {
-								listener.handleRevalidateRect(event.Rect)
-								break
+						vcs := getVirtualChunks(state, event.Rect, false)
+						if len(vcs) > 0 {
+							vcsSlice := []int{}
+							for _, vc := range vcs {
+								vcsSlice = append(vcsSlice, vc)
 							}
+							listener.handleRevalidateRect(event.Rect, vcsSlice)
 						}
 					}
 				case canvasEventSignalDownload:
 					for listener, state := range listeners {
-						if state.ForwardAll {
-							listener.handleSignalDownload(event.Rect)
+						if !state.UseVirtualChunks {
+							listener.handleSignalDownload(event.Rect, []int{})
 							continue
 						}
-						for rect := range state.Chunks {
-							if event.Rect.Overlaps(rect) {
-								listener.handleSignalDownload(event.Rect)
-								break
+						vcs := getVirtualChunks(state, event.Rect, false)
+						if len(vcs) > 0 {
+							vcsSlice := []int{}
+							for _, vc := range vcs {
+								vcsSlice = append(vcsSlice, vc)
 							}
+							listener.handleSignalDownload(event.Rect, vcsSlice)
 						}
 					}
 				case canvasEventListenerSubscribe:
 					//log.Tracef("Listener %v subscribed", event.Listener)
-					listeners[event.Listener] = canvasListenerState{}
+					listeners[event.Listener] = &canvasListenerState{
+						UseVirtualChunks:      event.UseVirtualChunks,
+						VirtualChunkIDCounter: 1,
+					}
+
+					// If the canvas doesn't handle the listeners chunks, just send all chunks for initialization
+					if !event.UseVirtualChunks {
+						chunks := can.getAllChunks()
+						for _, chunk := range chunks {
+							img, valid, _, err := chunk.getImageCopy(false)
+							if err == nil {
+								event.Listener.handleSetImage(img, valid, []int{})
+							}
+						}
+					}
 				case canvasEventListenerUnsubscribe:
 					//log.Tracef("Listener %v unsubscribed", event.Listener)
 					delete(listeners, event.Listener)
@@ -251,55 +298,53 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 						//log.Tracef("Listener %v changed rects to %v", event.Listener, event.Rects)
 
 						state.Rects = event.Rects
-						state.ForwardAll = event.ForwardAll
 
-						// Get all chunk rects that are intersecting the listener rectangles. Also query rects
-						neededChunks := map[image.Rectangle]bool{}
-						for _, rect := range event.Rects {
+						// Make download query for rects
+						for _, rect := range state.Rects {
 							go func(rect image.Rectangle) { rectQueryChan <- rect }(rect) // Async download request
-							chunkRect := can.ChunkSize.getOuterChunkRect(rect)
-							for iy := chunkRect.Min.Y; iy < chunkRect.Max.Y; iy++ {
-								for ix := chunkRect.Min.X; ix < chunkRect.Max.X; ix++ {
-									chunkRect := image.Rectangle{
-										Min: image.Point{ix * can.ChunkSize.X, iy * can.ChunkSize.Y},
-										Max: image.Point{(ix + 1) * can.ChunkSize.X, (iy + 1) * can.ChunkSize.Y},
-									}
-									neededChunks[chunkRect] = true
-								}
+						}
+
+						if !state.UseVirtualChunks {
+							break
+						}
+
+						// Get or create chunk rects that are intersecting with the listener rectangles
+						neededChunks := map[image.Rectangle]int{}
+						for _, rect := range state.Rects {
+							tempChunks := getVirtualChunks(state, rect, true)
+							for k, v := range tempChunks {
+								neededChunks[k] = v
 							}
 						}
 
 						// Handle chunk rects, that are missing on the listeners side
-						createChunks := []image.Rectangle{}
-						for k := range neededChunks {
-							if _, ok := state.Chunks[k]; !ok {
-								createChunks = append(createChunks, k)
+						createChunks := map[image.Rectangle]int{}
+						for k, v := range neededChunks {
+							if _, ok := state.VirtualChunks[k]; !ok {
+								createChunks[k] = v
 							}
 						}
 
 						// Handle chunk rects, that are not needed anymore on the listeners side
-						removeChunks := []image.Rectangle{}
-						for k := range state.Chunks {
+						removeChunks := map[image.Rectangle]int{}
+						for k, v := range state.VirtualChunks {
 							if _, ok := neededChunks[k]; !ok {
-								removeChunks = append(removeChunks, k)
+								removeChunks[k] = v
 							}
 						}
 
-						state.Chunks = neededChunks
-						listeners[event.Listener] = state
-
-						// TODO: Add flag that will ignore rects for sending chunks to listeners, and just send everything
+						state.VirtualChunks = neededChunks
 
 						event.Listener.handleChunksChange(createChunks, removeChunks)
 
 						// Additionally send images for the new chunks if possible
-						for _, rect := range createChunks {
+						for rect, id := range createChunks {
 							chunkCoord := can.ChunkSize.getChunkCoord(rect.Min)
 							chunk, err := can.getChunk(chunkCoord, false)
 							if err == nil {
 								img, valid, _, err := chunk.getImageCopy(false)
 								if err == nil {
-									event.Listener.handleSetImage(img, valid)
+									event.Listener.handleSetImage(img, valid, []int{id})
 								}
 							}
 						}
@@ -321,7 +366,16 @@ func newCanvas(chunkSize pixelSize, canvasRect image.Rectangle) (*canvas, <-chan
 	return can, can.ChunkRequestChan
 }
 
-func (can *canvas) subscribeListener(l canvasListener) error {
+// Subscribes a listener to canvas events.
+//
+// If useVirtualChunks is true, the canvas will manage chunks for the listener:
+// - It will send register virtual chunk events with a list of new chunks for the listener
+// - It will send unregister virtual chunk events with a list of chunks to be deleted on the listener side
+// - Only events that intersect those registered virtual chunks will be sent to the listener
+//
+// If that flag is false, the canvas will send all events to the listener.
+// Furthermore it will send the images of all known chunks on subscription.
+func (can *canvas) subscribeListener(l canvasListener, useVirtualChunks bool) error {
 	can.ClosedMutex.RLock()
 	defer can.ClosedMutex.RUnlock()
 	if can.Closed {
@@ -330,7 +384,8 @@ func (can *canvas) subscribeListener(l canvasListener) error {
 
 	// Forward event to broadcaster goroutine, even if there isn't a chunk.
 	can.EventChan <- canvasEventListenerSubscribe{
-		Listener: l,
+		Listener:         l,
+		UseVirtualChunks: useVirtualChunks,
 	}
 
 	return nil
@@ -352,12 +407,11 @@ func (can *canvas) unsubscribeListener(l canvasListener) error {
 }
 
 // Register a number of rectangles that the listener needs to be kept up to date with.
-// If forwardAll is true, any event is forwarded to the listener, even if it is outside the given rectangles.
 //
-// This function will not fail if the listener isn't subscribed.
+// This function will silently fail if the listener isn't subscribed already.
 //
 // Don't call this function from the same context that handles events, or it will cause a deadlock.
-func (can *canvas) registerRects(l canvasListener, rects []image.Rectangle, forwardAll bool) error {
+func (can *canvas) registerRects(l canvasListener, rects []image.Rectangle) error {
 	can.ClosedMutex.RLock()
 	defer can.ClosedMutex.RUnlock()
 	if can.Closed {
@@ -366,9 +420,8 @@ func (can *canvas) registerRects(l canvasListener, rects []image.Rectangle, forw
 
 	// Forward event to broadcaster goroutine, even if there isn't a chunk.
 	can.EventChan <- canvasEventListenerRects{
-		Listener:   l,
-		Rects:      rects,
-		ForwardAll: forwardAll,
+		Listener: l,
+		Rects:    rects,
 	}
 
 	return nil
@@ -425,6 +478,18 @@ func (can *canvas) getChunks(rect chunkRectangle, createIfNonexistent, ignoreNon
 	}
 
 	return chunks, nil
+}
+
+func (can *canvas) getAllChunks() []*chunk {
+	can.RLock()
+	defer can.RUnlock()
+
+	chunks := []*chunk{}
+	for _, chunk := range can.Chunks {
+		chunks = append(chunks, chunk)
+	}
+
+	return chunks
 }
 
 func (can *canvas) getPixel(pos image.Point) (color.Color, error) {
@@ -620,11 +685,11 @@ func (can *canvas) invalidateAll() error {
 		return fmt.Errorf("Canvas is closed")
 	}
 
-	can.RLock()
-	for _, chunk := range can.Chunks {
+	chunks := can.getAllChunks()
+
+	for _, chunk := range chunks {
 		chunk.invalidateImage()
 	}
-	can.RUnlock()
 
 	// Forward event to broadcaster goroutine
 	can.EventChan <- canvasEventInvalidateAll{}

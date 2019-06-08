@@ -70,7 +70,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			return sciter.NewValue("Already subscribed")
 		}
 
-		err := can.subscribeListener(sca)
+		err := can.subscribeListener(sca, true) // Let the canvas manage virtual chunks for us
 		if err != nil {
 			return sciter.NewValue("Can't subscribe to canvas: " + err.Error())
 		}
@@ -143,7 +143,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 	rectsChan := make(chan []image.Rectangle, 1)
 	go func() {
 		for rects := range rectsChan {
-			can.registerRects(sca, rects, false)
+			can.registerRects(sca, rects)
 		}
 	}()
 
@@ -226,7 +226,7 @@ func (s *sciterCanvas) handleInvalidateAll() error {
 	return nil
 }
 
-func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
+func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle, vcIDs []int) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()
 	if s.Closed {
@@ -239,13 +239,19 @@ func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle) error {
 	val.Set("Y", rect.Min.Y)
 	val.Set("Width", rect.Dx())
 	val.Set("Height", rect.Dy())
+	valArray := sciter.NewValue()
+	defer valArray.Release()
+	for k, v := range vcIDs {
+		valArray.SetIndex(k, v)
+	}
+	val.Set("VcIDs", valArray)
 
 	s.handlerChan <- val
 
 	return nil
 }
 
-func (s *sciterCanvas) handleRevalidateRect(rect image.Rectangle) error {
+func (s *sciterCanvas) handleRevalidateRect(rect image.Rectangle, vcIDs []int) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()
 	if s.Closed {
@@ -258,13 +264,19 @@ func (s *sciterCanvas) handleRevalidateRect(rect image.Rectangle) error {
 	val.Set("Y", rect.Min.Y)
 	val.Set("Width", rect.Dx())
 	val.Set("Height", rect.Dy())
+	valArray := sciter.NewValue()
+	defer valArray.Release()
+	for k, v := range vcIDs {
+		valArray.SetIndex(k, v)
+	}
+	val.Set("VcIDs", valArray)
 
 	s.handlerChan <- val
 
 	return nil
 }
 
-func (s *sciterCanvas) handleSetImage(img image.Image, valid bool) error {
+func (s *sciterCanvas) handleSetImage(img image.Image, valid bool, vcIDs []int) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()
 	if s.Closed {
@@ -288,13 +300,19 @@ func (s *sciterCanvas) handleSetImage(img image.Image, valid bool) error {
 	valArray.SetBytes(array)
 	val.Set("Array", valArray)
 	val.Set("Valid", valid)
+	valArray = sciter.NewValue()
+	defer valArray.Release()
+	for k, v := range vcIDs {
+		valArray.SetIndex(k, v)
+	}
+	val.Set("VcIDs", valArray)
 
 	s.handlerChan <- val
 
 	return nil
 }
 
-func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color) error {
+func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color, vcID int) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()
 	if s.Closed {
@@ -311,13 +329,14 @@ func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color) error 
 	val.Set("G", g>>8)
 	val.Set("B", b>>8)
 	val.Set("A", a>>8)
+	val.Set("VcID", vcID)
 
 	s.handlerChan <- val
 
 	return nil
 }
 
-func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle) error {
+func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle, vcIDs []int) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()
 	if s.Closed {
@@ -330,35 +349,65 @@ func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle) error {
 	val.Set("Y", rect.Min.Y)
 	val.Set("Width", rect.Dx())
 	val.Set("Height", rect.Dy())
+	valArray := sciter.NewValue()
+	defer valArray.Release()
+	for k, v := range vcIDs {
+		valArray.SetIndex(k, v)
+	}
+	val.Set("VcIDs", valArray)
 
 	s.handlerChan <- val
 
 	return nil
 }
 
-func (s *sciterCanvas) handleChunksChange(create, remove []image.Rectangle) error {
+func (s *sciterCanvas) handleChunksChange(create, remove map[image.Rectangle]int) error {
 	s.ClosedMutex.RLock()
 	defer s.ClosedMutex.RUnlock()
 	if s.Closed {
 		return fmt.Errorf("Listener is closed")
 	}
 
+	removeIDs := []int{}
+	for _, id := range remove {
+		removeIDs = append(removeIDs, id)
+	}
+
+	createIDs := []struct {
+		Rect image.Rectangle
+		VcID int
+	}{}
+	for rect, id := range create {
+		createIDs = append(createIDs, struct {
+			Rect image.Rectangle
+			VcID int
+		}{
+			rect, id,
+		})
+	}
+
 	jsonData := struct {
-		Type           string
-		Create, Remove []image.Rectangle
+		Type   string
+		Create []struct {
+			Rect image.Rectangle
+			VcID int
+		}
+		Remove []int
 	}{
 		"ChunksChange",
-		create, remove,
+		createIDs, removeIDs,
 	}
 
 	// TODO: Don't use json as intermediary
 
 	b, err := json.Marshal(jsonData)
-	if err == nil {
-		val := sciter.NewValue()
-		val.ConvertFromString(string(b), sciter.CVT_JSON_LITERAL)
-		s.handlerChan <- val
+	if err != nil {
+		return fmt.Errorf("Can't convert to JSON object: %v", err)
 	}
+
+	val := sciter.NewValue()
+	val.ConvertFromString(string(b), sciter.CVT_JSON_LITERAL)
+	s.handlerChan <- val
 
 	return nil
 }

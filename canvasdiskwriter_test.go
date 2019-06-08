@@ -30,7 +30,7 @@ func Test_canvas_newCanvasDiskWriter(t *testing.T) {
 		t.Errorf("Can't create canvas disk writer: %v", err)
 	}
 
-	can.subscribeListener(cdw)
+	can.subscribeListener(cdw, false) // Don't let the canvas manage virtual chunks for us
 
 	for i := 0; i < 128; i++ {
 		rect := image.Rectangle{image.Point{i * 64, i * 64}, image.Point{i*64 + 64, i*64 + 64}}

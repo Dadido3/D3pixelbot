@@ -168,7 +168,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 						if tempTime.Before(curTime) {
 							return true, false // Start from the beginning again
 						}
-						log.Tracef("Change time from %v to %v (recTime: %v)", curTime, tempTime, recTime)
+						//log.Tracef("Change time from %v to %v (recTime: %v)", curTime, tempTime, recTime)
 						curTime = tempTime
 
 						// Do until recTime >= curTime
@@ -293,11 +293,10 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	}()
 
 	// Test
-	//tic := time.NewTicker(10 * time.Millisecond)
+	tic := time.NewTicker(5 * time.Millisecond)
 	go func() {
 		someTime := startRecTime
-		//for range tic.C {
-		for {
+		for range tic.C {
 			someTime = someTime.Add(1 * time.Second)
 			cdr.TimeChan <- someTime
 		}

@@ -101,7 +101,7 @@ func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, err
 		return nil, fmt.Errorf("Can't write to file %v: %v", filePath, err)
 	}
 
-	can.subscribeListener(cdw)
+	can.subscribeListener(cdw, false) // Don't let the canvas manage virtual chunks for us
 
 	return cdw, nil
 }
@@ -113,12 +113,12 @@ func (cdw *canvasDiskWriter) setListeningRects(rects []image.Rectangle) error {
 		return fmt.Errorf("Listener is closed")
 	}
 
-	cdw.Canvas.registerRects(cdw, rects, true)
+	cdw.Canvas.registerRects(cdw, rects)
 
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, color color.Color) error {
+func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, color color.Color, vcID int) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
@@ -148,7 +148,7 @@ func (cdw *canvasDiskWriter) handleSetPixel(pos image.Point, color color.Color) 
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleInvalidateRect(rect image.Rectangle) error {
+func (cdw *canvasDiskWriter) handleInvalidateRect(rect image.Rectangle, vcIDs []int) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
@@ -193,7 +193,7 @@ func (cdw *canvasDiskWriter) handleInvalidateAll() error {
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleRevalidateRect(rect image.Rectangle) error {
+func (cdw *canvasDiskWriter) handleRevalidateRect(rect image.Rectangle, vcIDs []int) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
@@ -218,7 +218,7 @@ func (cdw *canvasDiskWriter) handleRevalidateRect(rect image.Rectangle) error {
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle) error {
+func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle, vcIDs []int) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
@@ -231,7 +231,7 @@ func (cdw *canvasDiskWriter) handleSignalDownload(rect image.Rectangle) error {
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleSetImage(img image.Image, valid bool) error {
+func (cdw *canvasDiskWriter) handleSetImage(img image.Image, valid bool, vcIDs []int) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
@@ -274,7 +274,7 @@ func (cdw *canvasDiskWriter) handleSetImage(img image.Image, valid bool) error {
 	return nil
 }
 
-func (cdw *canvasDiskWriter) handleChunksChange(create, remove []image.Rectangle) error {
+func (cdw *canvasDiskWriter) handleChunksChange(create, remove map[image.Rectangle]int) error {
 	cdw.ClosedMutex.RLock()
 	defer cdw.ClosedMutex.RUnlock()
 	if cdw.Closed {
