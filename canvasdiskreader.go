@@ -143,7 +143,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 
 					// Found valid recording, read it
 					fileName := filepath.Join(fileDirectory, recording.Name())
-					log.Tracef("Open recording %v", fileName)
+					log.Debugf("Open recording %v", fileName)
 					file, err := os.Open(fileName)
 					if err != nil {
 						log.Warnf("Can't open file %v: %v", fileName, err)
@@ -287,12 +287,12 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 					return
 				}
 				if restart {
-					log.Tracef("Start recording %v from beginning", shortName)
+					log.Debugf("Start recording %v from beginning", shortName)
 					continue restartLoop
 				}
 			}
 			// Iterated through all files without getting to curTime. Wait for next curTime change
-			log.Tracef("Reached end of all recording files of %v", shortName)
+			log.Debugf("Reached end of all recording files of %v", shortName)
 			for {
 				tempTime, ok := <-cdr.TimeChan
 				if !ok {

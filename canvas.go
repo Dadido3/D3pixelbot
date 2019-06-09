@@ -340,7 +340,9 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 
 						state.VirtualChunks = neededChunks
 
-						event.Listener.handleChunksChange(createChunks, removeChunks)
+						if len(createChunks) > 0 || len(removeChunks) > 0 {
+							event.Listener.handleChunksChange(createChunks, removeChunks)
+						}
 
 						// Additionally send images for the new chunks if possible
 						for rect, id := range createChunks {
