@@ -1,4 +1,4 @@
-module crashtest
+module freezetest
 
 go 1.12
 
