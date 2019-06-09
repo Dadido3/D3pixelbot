@@ -65,6 +65,7 @@ class PixCanvas : Behavior {
 		this.timer(1s, function() {
 			// TODO: Only recenter if the scrollbar isn't clicked and if scrolling isn't animated
 			this.recenterScrolling();
+			gc();
 			return true;
 		});
 
