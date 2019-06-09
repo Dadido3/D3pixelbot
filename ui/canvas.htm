@@ -41,13 +41,22 @@
 				pc.setZoom(this.value-2)
 			});
 
+			function processEvents(events) {
+				pc.eventHandler(events); // Froze after 10 minutes, 7 minutes
+				//pc.post(::pc.eventHandler(events)); // Froze after 30 minutes, 5 minutes
+				/*var bla = 0; // Didn't freeze
+				for (var i = 0; i < 10000; i++){
+					bla += Math.sin(i);
+				}*/
+			}
+
 			function self.ready() {
 				//view.connectToInspector();
 			}
 
 			function self.closing() {
 				pc.remove(); // So detached is called
-				view.signalClosed();
+				//view.signalClosed();
 			}
 		</script>
 	</head>

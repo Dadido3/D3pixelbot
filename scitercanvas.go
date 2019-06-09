@@ -17,7 +17,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -58,10 +57,10 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		if len(args) != 2 {
 			return sciter.NewValue("Wrong number of parameters")
 		}
-		obj, cbHandler := args[0].Clone(), args[1].Clone() // Always clone, otherwise those are just references to sciter values and will be invalid if used after return
-		if !obj.IsObject() || !cbHandler.IsObjectFunction() {
-			return sciter.NewValue("Wrong type of parameters")
-		}
+		//obj, cbHandler := args[0].Clone(), args[1].Clone() // Always clone, otherwise those are just references to sciter values and will be invalid if used after return
+		//if !obj.IsObject() || !cbHandler.IsObjectFunction() {
+		//	return sciter.NewValue("Wrong type of parameters")
+		//}
 
 		sca.ClosedMutex.Lock()
 		defer sca.ClosedMutex.Unlock()
@@ -80,36 +79,13 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 
 		go func(channel <-chan *sciter.Value) {
 			for {
-				// Batch read from channel, or return if the channel got closed
-				events := []*sciter.Value{}
-				event, ok := <-channel
+				val, ok := <-channel
 				if !ok {
 					// Channel closed, so just close goroutine
 					return
 				}
-				events = append(events, event)
-			batchLoop:
-				for i := 1; i < 25; i++ { // Limit batch size to 25
-					select {
-					case event, ok := <-channel:
-						if ok {
-							events = append(events, event)
-						}
-					default:
-						break batchLoop
-					}
-				}
-
-				val := sciter.NewValue()
-				for _, event := range events {
-					val.Append(event)
-					event.Release()
-				}
-				//log.Tracef("Invoke cbHandler with %v", val)
-				cbHandler.Invoke(obj, "[Native Script]", val)
-				//log.Tracef("Invoke cbHandler with %v done", val)
+				w.Call("processEvents", val)
 				val.Release()
-				//log.Tracef("val released")
 			}
 		}(sca.handlerChan)
 
@@ -156,12 +132,16 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
+		//log.Tracef("registerRects #2")
+
 		jsonRect.ConvertToString(sciter.CVT_JSON_LITERAL)
 
 		rects := []image.Rectangle{}
 		if err := json.Unmarshal([]byte(jsonRect.String()), &rects); err != nil {
 			return sciter.NewValue(fmt.Sprintf("Error reading json: %v", err))
 		}
+
+		//log.Tracef("registerRects #3")
 
 		// Write rect into channel, or replace the current one if the goroutine is busy
 		select {
@@ -173,6 +153,19 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			}
 			rectsChan <- rects
 		}
+
+		//log.Tracef("registerRects #4")
+
+		return nil
+	})
+
+	w.DefineFunction("trace", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 1 {
+			return sciter.NewValue("Wrong number of parameters")
+		}
+		message := args[0].String()
+
+		log.Trace(message)
 
 		return nil
 	})
@@ -218,10 +211,8 @@ func (s *sciterCanvas) handleInvalidateAll() error {
 		return fmt.Errorf("Listener is closed")
 	}
 
-	val := sciter.NewValue()
-	val.Set("Type", "InvalidateAll")
-
-	s.handlerChan <- val
+	//val := sciter.NewValue(1)
+	//s.handlerChan <- val
 
 	return nil
 }
@@ -233,20 +224,8 @@ func (s *sciterCanvas) handleInvalidateRect(rect image.Rectangle, vcIDs []int) e
 		return fmt.Errorf("Listener is closed")
 	}
 
-	val := sciter.NewValue()
-	val.Set("Type", "InvalidateRect")
-	val.Set("X", rect.Min.X)
-	val.Set("Y", rect.Min.Y)
-	val.Set("Width", rect.Dx())
-	val.Set("Height", rect.Dy())
-	valArray := sciter.NewValue()
-	defer valArray.Release()
-	for k, v := range vcIDs {
-		valArray.SetIndex(k, v)
-	}
-	val.Set("VcIDs", valArray)
-
-	s.handlerChan <- val
+	//val := sciter.NewValue(2)
+	//s.handlerChan <- val
 
 	return nil
 }
@@ -258,20 +237,8 @@ func (s *sciterCanvas) handleRevalidateRect(rect image.Rectangle, vcIDs []int) e
 		return fmt.Errorf("Listener is closed")
 	}
 
-	val := sciter.NewValue()
-	val.Set("Type", "RevalidateRect")
-	val.Set("X", rect.Min.X)
-	val.Set("Y", rect.Min.Y)
-	val.Set("Width", rect.Dx())
-	val.Set("Height", rect.Dy())
-	valArray := sciter.NewValue()
-	defer valArray.Release()
-	for k, v := range vcIDs {
-		valArray.SetIndex(k, v)
-	}
-	val.Set("VcIDs", valArray)
-
-	s.handlerChan <- val
+	//val := sciter.NewValue(3)
+	//s.handlerChan <- val
 
 	return nil
 }
@@ -283,31 +250,8 @@ func (s *sciterCanvas) handleSetImage(img image.Image, valid bool, vcIDs []int) 
 		return fmt.Errorf("Listener is closed")
 	}
 
-	imageArray := imageToBGRAArray(img)
-	headerArray := [12]byte{'B', 'G', 'R', 'A'}
-	binary.BigEndian.PutUint32(headerArray[4:8], uint32(img.Bounds().Dx()))
-	binary.BigEndian.PutUint32(headerArray[8:12], uint32(img.Bounds().Dy()))
-	array := append(headerArray[:], imageArray...)
-
-	val := sciter.NewValue()
-	val.Set("Type", "SetImage")
-	val.Set("X", img.Bounds().Min.X)
-	val.Set("Y", img.Bounds().Min.Y)
-	val.Set("Width", img.Bounds().Dx())
-	val.Set("Height", img.Bounds().Dy())
-	valArray := sciter.NewValue()
-	defer valArray.Release()
-	valArray.SetBytes(array)
-	val.Set("Array", valArray)
-	val.Set("Valid", valid)
-	valArray = sciter.NewValue()
-	defer valArray.Release()
-	for k, v := range vcIDs {
-		valArray.SetIndex(k, v)
-	}
-	val.Set("VcIDs", valArray)
-
-	s.handlerChan <- val
+	//val := sciter.NewValue(4)
+	//s.handlerChan <- val
 
 	return nil
 }
@@ -319,19 +263,8 @@ func (s *sciterCanvas) handleSetPixel(pos image.Point, color color.Color, vcID i
 		return fmt.Errorf("Listener is closed")
 	}
 
-	r, g, b, a := color.RGBA()
-
-	val := sciter.NewValue()
-	val.Set("Type", "SetPixel")
-	val.Set("X", pos.X)
-	val.Set("Y", pos.Y)
-	val.Set("R", r>>8)
-	val.Set("G", g>>8)
-	val.Set("B", b>>8)
-	val.Set("A", a>>8)
-	val.Set("VcID", vcID)
-
-	s.handlerChan <- val
+	//val := sciter.NewValue(5)
+	//s.handlerChan <- val
 
 	return nil
 }
@@ -343,20 +276,8 @@ func (s *sciterCanvas) handleSignalDownload(rect image.Rectangle, vcIDs []int) e
 		return fmt.Errorf("Listener is closed")
 	}
 
-	val := sciter.NewValue()
-	val.Set("Type", "SignalDownload")
-	val.Set("X", rect.Min.X)
-	val.Set("Y", rect.Min.Y)
-	val.Set("Width", rect.Dx())
-	val.Set("Height", rect.Dy())
-	valArray := sciter.NewValue()
-	defer valArray.Release()
-	for k, v := range vcIDs {
-		valArray.SetIndex(k, v)
-	}
-	val.Set("VcIDs", valArray)
-
-	s.handlerChan <- val
+	//val := sciter.NewValue(6)
+	//s.handlerChan <- val
 
 	return nil
 }
@@ -368,46 +289,8 @@ func (s *sciterCanvas) handleChunksChange(create, remove map[image.Rectangle]int
 		return fmt.Errorf("Listener is closed")
 	}
 
-	removeIDs := []int{}
-	for _, id := range remove {
-		removeIDs = append(removeIDs, id)
-	}
-
-	createIDs := []struct {
-		Rect image.Rectangle
-		VcID int
-	}{}
-	for rect, id := range create {
-		createIDs = append(createIDs, struct {
-			Rect image.Rectangle
-			VcID int
-		}{
-			rect, id,
-		})
-	}
-
-	jsonData := struct {
-		Type   string
-		Create []struct {
-			Rect image.Rectangle
-			VcID int
-		}
-		Remove []int
-	}{
-		"ChunksChange",
-		createIDs, removeIDs,
-	}
-
-	// TODO: Don't use json as intermediary
-
-	b, err := json.Marshal(jsonData)
-	if err != nil {
-		return fmt.Errorf("Can't convert to JSON object: %v", err)
-	}
-
-	val := sciter.NewValue()
-	val.ConvertFromString(string(b), sciter.CVT_JSON_LITERAL)
-	s.handlerChan <- val
+	//val := sciter.NewValue(7)
+	//s.handlerChan <- val
 
 	return nil
 }

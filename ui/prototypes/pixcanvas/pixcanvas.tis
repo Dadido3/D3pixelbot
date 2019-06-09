@@ -44,7 +44,15 @@ class PixCanvas : Behavior {
 				Max: {X: (left+width).toInteger(), Y: (top+height).toInteger()}
 			}];
 			
-			view.registerRects(rects);
+			//view.trace("registerRects #1");
+			//view.registerRects(rects);
+			//view.trace("registerRects #5---");
+			for (var i = 0; i < 1; i++) {
+				this.eventHandler(rand(7)+1);
+			}
+			for (var i = 0; i < 1; i++) {
+				this.eventHandler(5);
+			}
 		};
 		this.onSize = function() {this.sendRects(null);};
 		this.on("scroll", this.sendRects);
@@ -67,14 +75,41 @@ class PixCanvas : Behavior {
 			this.eventHandler([{Type: "SetPixel", X: 128+rand(64), Y: 64+rand(64), R: 0, G: 255, B: 0, A: 255, VcID: 1}]);
 			return true;
 		});*/
+
+		/*var counter = 0;
+		this.timer(50ms, function() {
+			for (var i = 0; i < 1; i++) {
+				var x = Math.cos(counter * 2 * Math.PI / 20)*1000;
+				var y = Math.sin(counter * 2 * Math.PI / 20)*1000;
+				//var (x, y) = (0, 0);
+				counter ++;
+				var rects = [{
+					Min: {X: x.toInteger(), Y: y.toInteger()},
+					Max: {X: x.toInteger()+5000, Y: y.toInteger()+1000}
+				}];
+
+				view.trace("registerRects #1");
+				view.registerRects(rects);
+				view.trace("registerRects #5---");
+			}
+			return true;
+		});*/
+
+		this.timer(10ms, function() {
+			//this.eventHandler(rand(7)+1);
+			for (var i = 0; i < 1; i++) {
+				this.eventHandler(5);
+			}
+			return true;
+		});
 		
-		var err = view.subscribeCanvasEvents(pc, pc.eventHandler);
+		//var err = view.subscribeCanvasEvents(1, 2);
 
 		this.setZoom(0);
 	}
 
 	function detached() {
-		view.unsubscribeCanvasEvents();
+		//view.unsubscribeCanvasEvents();
 	}
 
 	function setZoom(zoomLevel) {
@@ -209,6 +244,8 @@ class PixCanvas : Behavior {
 		for (var vcID in event.Remove) {
 			var elem = this.getChunk(vcID);
 			if (elem) {
+				//elem.$(>img).value = null; // TODO: Check if this is needed
+				//delete(elem.img);
 				elem.remove();
 				delete(this.virtualChunks[vcID]);
 			}
@@ -232,38 +269,50 @@ class PixCanvas : Behavior {
 		}
 	}
 
-	function eventHandler(events) {
-		for (var e in events) {
-			switch (e.Type) {
-				case "InvalidateAll": {
-					this.eventInvalidateAll(e);
-					break;
-				}
-				case "InvalidateRect": {
-					this.eventInvalidateRect(e);
-					break;
-				}
-				case "RevalidateRect": {
-					this.eventRevalidateRect(e);
-					break;
-				}
-				case "SetImage": {
-					this.eventSetImage(e);
-					break;
-				}
-				case "SetPixel": {
-					this.eventSetPixel(e);
-					break;
-				}
-				case "SignalDownload": {
-					this.eventSignalDownload(e);
-					break;
-				}
-				case "ChunksChange": {
-					this.eventChunksChange(e);
-					break;
+	function eventHandler(event) {
+		//view.trace("sendEvent #3");
+		for (var iy = 0; iy < 5; iy++) {
+			for (var ix = 0; ix < 5; ix++) {
+				var i = ix + iy * 5;
+				switch (event) {
+					case 1: {//"InvalidateAll": {
+						this.eventInvalidateAll(e);
+						break;
+					}
+					case 2: {//"InvalidateRect": {
+						var e = {VcIDs: [i]};
+						this.eventInvalidateRect(e);
+						break;
+					}
+					case 3: {//"RevalidateRect": {
+						var e = {VcIDs: [i]};
+						this.eventRevalidateRect(e);
+						break;
+					}
+					case 4: {//"SetImage": {
+						var img = new Image(64, 64, Graphics.RGBA("red"), function(gfx) {});
+						var e = {VcIDs: [i], X: ix * 66, Y: iy * 66, Array: img.toBytes(), Valid: true};
+						this.eventSetImage(e);
+						break;
+					}
+					case 5: {//"SetPixel": {
+						var e = {X: ix * 66 + rand(64), Y: iy * 66 + rand(64), R: rand(256), G: rand(256), B: rand(256), A: 255, VcID: i};
+						this.eventSetPixel(e);
+						break;
+					}
+					case 6: {//"SignalDownload": {
+						var e = {VcIDs: [i]};
+						this.eventSignalDownload(e);
+						break;
+					}
+					case 7: {//"ChunksChange": {
+						var e = {Remove: [i], Create: [{Rect: {Min: {X: ix * 66, Y: iy * 66},Max: {X: ix * 66 + 64, Y: iy * 66 + 64}}, VcID: i}]};
+						this.eventChunksChange(e);
+						break;
+					}
 				}
 			}
 		}
+		//view.trace("sendEvent #4");
 	}
 }

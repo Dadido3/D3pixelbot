@@ -11,5 +11,5 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.4.0
 	golang.org/x/image v0.0.0-20190523035834-f03afa92d3ff
-	golang.org/x/sys v0.0.0-20190527104216-9cd6430ef91e // indirect
+	golang.org/x/sys v0.0.0-20190527104216-9cd6430ef91e
 )

@@ -53,13 +53,13 @@
 			});
 
 			$(#btn-local-record).on("click", function() {
-				var values = $(#local-settings).value;
+				var values = $(#remote-settings).value;
 				var res = view.recordLocal(values.game);
 				debug : res;
 			});
 
 			$(#btn-local-replay).on("click", function() {
-				var values = $(#local-settings).value;
+				var values = $(#replay-settings).value;
 				var res = view.replayLocal(values.game);
 				debug : res;
 			});
@@ -114,6 +114,7 @@
 					<label>Game:</label>
 					<select(game)>
 						<option selected value="pixelcanvasio">PixelCanvas.io</option>
+						<option value="pixelcanvasio.smol">PixelCanvas.io Smallchunk</option>
 					</select>
 				</form>
 
