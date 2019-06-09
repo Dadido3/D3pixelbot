@@ -1,0 +1,143 @@
+<html window-frame="solid-with-shadow" window-blurbehind="light" theme="light" window-frame="none">
+	<head>
+		<title>D3pixelbot Launcher</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<style>
+			@import url("styles/flat-theme.css");
+			@import url("prototypes/tabs/tabs.css");
+
+            html {
+				background: transparent;
+			}
+
+			tabs {
+				color: black;
+			}
+
+			body {
+				flow:	"1";
+				font:system;
+			}
+
+			section {
+				flow: vertical;
+			}
+
+			.btn-box {
+				text-align: right;
+			}
+
+			.table {
+				flow: row(label, select input div textarea button);
+				border-spacing: 6dip;
+				height: *;
+			}
+			.table > label { padding:4dip; white-space:nowrap; horizontal-align:right; }
+			/*.table > * { display:block; }*/
+	  
+		</style>
+		<script type="text/tiscript">
+			// TODO: Redesign launcher interface
+			self.on("click", "a[href^=http]", function(evt) {
+				var href = this.attributes["href"];
+				Sciter.launch(href); // will open the url in default browser
+				return true; // consume the event
+			});
+
+			// TODO: Get game list from program
+
+			$(#btn-local-open).on("click", function() {
+				var values = $(#local-settings).value;
+				var res = view.openLocal(values.game);
+				debug : res;
+			});
+
+			$(#btn-local-record).on("click", function() {
+				var values = $(#remote-settings).value;
+				var res = view.recordLocal(values.game);
+				debug : res;
+			});
+
+			$(#btn-local-replay).on("click", function() {
+				var values = $(#replay-settings).value;
+				var res = view.replayLocal(values.game);
+				debug : res;
+			});
+		</script>
+	</head>
+	
+	<body>
+		<tabs #test>
+			<div.strip>
+				<label for=first >Local</label>
+				<label for=second >Remote</label>
+				<label for=third >Replay</label>
+				<label for=fourth >About</label>
+			</div>
+			<section(first)>
+				<h2>Create new local connection:</h2>
+				<form #local-settings .table>
+					<label>Game:</label>
+					<select(game)>
+						<option selected value="pixelcanvasio">PixelCanvas.io</option>
+					</select>
+				</form>
+
+				<div .btn-box>
+					<button#btn-local-open>Open</button>
+					<button#btn-local-record>Record</button>
+				</div>
+			</section>
+			<section(second)>
+				<h2>Create new remote connection:</h2>
+				<form #remote-settings .table>
+					<label>Game:</label>
+					<select(game)>
+						<option selected value="pixelcanvasio">PixelCanvas.io</option>
+					</select>
+					<label>Address:</label>
+					<input|text(address)>
+					</input>
+					<label>Password:</label>
+					<input|password(password)>
+					</input>
+				</form>
+
+				<div .btn-box>
+					<button#btn-remote-open>Open</button>
+					<button#btn-remote-record>Record</button>
+				</div>
+			</section>
+			<section(third)>
+				<h2>Replay recording:</h2>
+				<form #replay-settings .table>
+					<label>Game:</label>
+					<select(game)>
+						<option selected value="pixelcanvasio">PixelCanvas.io</option>
+						<option value="pixelcanvasio.smol">PixelCanvas.io Smallchunk</option>
+					</select>
+				</form>
+
+				<div .btn-box>
+					<button#btn-local-replay>Replay</button>
+				</div>
+			</section>
+			<section(fourth)>
+				<h1>D3pixelbot</h1>
+				<p>
+					This is a custom client, bot and recorder for Pixelcanvas.io and similar online games.
+					In contrast to similar projects this client is made to be configurable and usable without any hassles.
+					Programming experience isn't necessary, and there is no need to install runtimes for any scripting language.
+				</p>
+				<ul>
+					<li>Programmer: David Vogel (Dadido3, Xaardas)</li>
+					<li>Website: <a href="http://D3nexus.de">D3nexus.de</a></li>
+					<li>Repository: <a href="https://github.com/Dadido3/Pixelcanvas.io-Custom-Client">github.com/Dadido3/Pixelcanvas.io-Custom-Client</a></li>
+				</ul>
+				<p>This Application (or Component) uses Sciter Engine (<a href="http://sciter.com">http://sciter.com/</a>), copyright Terra Informatica Software, Inc.</p>
+
+			</section>
+		</tabs>
+	</body>
+	
+</html>

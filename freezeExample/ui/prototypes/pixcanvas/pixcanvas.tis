@@ -1,0 +1,318 @@
+class PixCanvas : Behavior {
+	function attached() {
+		this.canvasWidth = 10000;
+		this.canvasHeight = 10000;
+		this.canvasCenterX = 0; // Offset to the center coordinate, as the container element can't be moved
+		this.canvasCenterY = 0;
+		this.zoom = 1.0;
+		this.virtualChunks = {};
+
+		this.on("mousedown", function(evt) {
+			if (evt.buttons == 0x04) { // Middle mouse button
+				this.scrolling = true;
+				this.scrollingX = evt.x;
+				this.scrollingY = evt.y;
+				this.capture(#strict);
+			}
+		});
+
+		this.on("mouseup", function(evt) {
+			if (evt.buttons == 0x04) { // Middle mouse button
+				this.scrolling = false;
+				this.capture(false);
+			}
+		});
+
+		this.on("mousemove", function(evt) {
+			if (this.scrolling) {
+				var (dx, dy) = (evt.x - this.scrollingX, evt.y - this.scrollingY);
+				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy, false, true);
+				this.scrollingX = evt.x;
+				this.scrollingY = evt.y;
+				this.sendRects(null);
+			}
+		});
+
+		this.sendRects = function(dummy) { 
+			var left = this.scroll(#left)/this.zoom - this.canvasCenterX;
+			var top = this.scroll(#top)/this.zoom - this.canvasCenterY;
+			var width = this.scroll(#width)/this.zoom;
+			var height = this.scroll(#height)/this.zoom;
+			
+			var rects = [{
+				Min: {X: left.toInteger(), Y: top.toInteger()},
+				Max: {X: (left+width).toInteger(), Y: (top+height).toInteger()}
+			}];
+			
+			//view.trace("registerRects #1");
+			//view.registerRects(rects);
+			//view.trace("registerRects #5---");
+			for (var i = 0; i < 1; i++) {
+				this.eventHandler(rand(7)+1);
+			}
+			for (var i = 0; i < 1; i++) {
+				this.eventHandler(5);
+			}
+		};
+		this.onSize = function() {this.sendRects(null);};
+		this.on("scroll", this.sendRects);
+
+		this.$(.canvasContainer).style.set({
+			width: this.canvasWidth * this.zoom,
+			height: this.canvasHeight * this.zoom
+		});
+
+		this.timer(1s, function() {
+			// TODO: Only recenter if the scrollbar isn't clicked and if scrolling isn't animated
+			this.recenterScrolling();
+			return true;
+		});
+
+		/*this.eventHandler([{Type: "ChunksChange", Remove: [], Create: [{Rect: {Min: {X: 128, Y: 64},Max: {X: 128+64, Y: 64+64}}, VcID: 1}]}]);
+		var img = new Image(64, 64, Graphics.RGBA("red"), function(gfx) {});
+		this.eventHandler([{Type: "SetImage", X: 128, Y: 64, Width: 64, Height: 64, Array: img.toBytes(), VcIDs: [1]}]);
+		this.timer(10ms, function() {
+			this.eventHandler([{Type: "SetPixel", X: 128+rand(64), Y: 64+rand(64), R: 0, G: 255, B: 0, A: 255, VcID: 1}]);
+			return true;
+		});*/
+
+		/*var counter = 0;
+		this.timer(50ms, function() {
+			for (var i = 0; i < 1; i++) {
+				var x = Math.cos(counter * 2 * Math.PI / 20)*1000;
+				var y = Math.sin(counter * 2 * Math.PI / 20)*1000;
+				//var (x, y) = (0, 0);
+				counter ++;
+				var rects = [{
+					Min: {X: x.toInteger(), Y: y.toInteger()},
+					Max: {X: x.toInteger()+5000, Y: y.toInteger()+1000}
+				}];
+
+				view.trace("registerRects #1");
+				view.registerRects(rects);
+				view.trace("registerRects #5---");
+			}
+			return true;
+		});*/
+
+		this.timer(10ms, function() {
+			//this.eventHandler(rand(7)+1);
+			for (var i = 0; i < 1; i++) {
+				this.eventHandler(5);
+			}
+			return true;
+		});
+		
+		//var err = view.subscribeCanvasEvents(1, 2);
+
+		this.setZoom(0);
+	}
+
+	function detached() {
+		//view.unsubscribeCanvasEvents();
+	}
+
+	function setZoom(zoomLevel) {
+		var left = (this.scroll(#left) + this.scroll(#width) / 2) / this.zoom;
+		var top = (this.scroll(#top) + this.scroll(#height) / 2) / this.zoom;
+
+		this.zoom = Math.pow(2, zoomLevel);
+
+		this.$(.canvasContainer).style.set {
+			width: this.canvasWidth * this.zoom,
+			height: this.canvasHeight * this.zoom
+		};
+
+		this.$(.canvasContainer>div).style.set({
+			transform: [scale: this.zoom],
+		});
+
+		this.scrollTo((left * this.zoom - this.scroll(#width) / 2).toInteger(), (top * this.zoom - this.scroll(#height) / 2).toInteger(), false, true);
+
+		this.sendRects(null);
+	}
+
+	function recenterScrolling() {
+		var dx = (this.scroll(#left) - this.scroll(#right)) / 2;
+		var dy = (this.scroll(#top) - this.scroll(#bottom)) / 2;
+
+		if (this.zoom > 1) {
+			dx = dx / this.zoom.toInteger() * this.zoom.toInteger();
+			dy = dy / this.zoom.toInteger() * this.zoom.toInteger();
+		}
+
+		if (dx == 0 && dy == 0) {
+			return;
+		}
+
+		this.canvasCenterX -= (dx / this.zoom).toInteger();
+		this.canvasCenterY -= (dy / this.zoom).toInteger();
+
+		for (var elem in this.$(.chunkContainer)) {
+			elem.style.set({
+				width: elem.MaxX - elem.MinX,
+				height: elem.MaxY - elem.MinY,
+				left: elem.MinX + this.canvasCenterX,
+				top: elem.MinY + this.canvasCenterY
+			});
+		}
+
+		this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy, false, true);
+	}
+
+	/*function getChunk(x, y) {
+		// TODO: Use map to lookup chunks
+		for (var elem in this.$(.chunkContainer)) {
+			if (x >= elem.MinX && y >= elem.MinY && x < elem.MaxX && y < elem.MaxY) {
+				return elem;
+			}
+		}
+		return;
+	}*/
+
+	// Returns the DOM chunk of the given id
+	function getChunk(id) {
+		return this.virtualChunks[id];
+	}
+
+	// Returns all chunks of the DOM that are listed in ids, or an empty array if nothing was found
+	function getChunks(ids) {
+		var chunks = [];
+		for (var id in ids) {
+			chunks.push(this.virtualChunks[id]);
+		}
+		return chunks;
+	}
+
+	function eventInvalidateAll(event) {
+		for (var (vcID, elem) in this.virtualChunks) {
+			elem.attributes.addClass("invalid");
+		}
+	}
+
+	function eventInvalidateRect(event) {
+		var elems = this.getChunks(event.VcIDs);
+		for (var elem in elems) {
+			elem.attributes.addClass("invalid");
+		}
+	}
+
+	function eventRevalidateRect(event) {
+		var elems = this.getChunks(event.VcIDs);
+		for (var elem in elems) {
+			elem.attributes.removeClass("invalid");
+			elem.attributes.removeClass("downloading");
+		}
+	}
+
+	function eventSetImage(event) {
+		var vcID = event.VcIDs[0]; // Assume that image is for exactly one chunk
+		var elem = this.getChunk(vcID);
+		if (!elem) {
+			return;
+		}
+
+		var (x, y) = (event.X, event.Y);
+		var img = Image.fromBytes(event.Array);
+		elem.attributes.toggleClass("invalid", !event.Valid);
+		elem.attributes.removeClass("downloading");
+
+		elem.$(>img).value = img;
+		elem.img = img;
+	}
+
+	function eventSetPixel(event) {
+		var elem = this.getChunk(event.VcID);
+		if (!elem || !elem.img) {
+			return;
+		}
+
+		var (x, y) = (event.X, event.Y);
+		var (cx, cy) = (x - elem.MinX, y - elem.MinY);
+		elem.img.colorAt(cx, cy, Graphics.RGBA(event.R, event.G, event.B, event.A));
+		elem.refresh();
+	}
+
+	function eventSignalDownload(event) {
+		var elems = this.getChunks(event.VcIDs);
+		for (var elem in elems) {
+			elem.attributes.addClass("downloading");
+		}
+	}
+
+	function eventChunksChange(event) {
+		for (var vcID in event.Remove) {
+			var elem = this.getChunk(vcID);
+			if (elem) {
+				//elem.$(>img).value = null; // TODO: Check if this is needed
+				//delete(elem.img);
+				elem.remove();
+				delete(this.virtualChunks[vcID]);
+			}
+		}
+
+		for (var (create) in event.Create) {
+			var (rect, vcID) = (create.Rect, create.VcID);
+			var elem = this.$(.chunkContainer).$append(<div.chunk><img/><span></span></div>);
+			this.virtualChunks[vcID] = elem;
+			elem.MinX = rect.Min.X;
+			elem.MinY = rect.Min.Y;
+			elem.MaxX = rect.Max.X;
+			elem.MaxY = rect.Max.Y;
+			elem.style.set({
+				width: elem.MaxX - elem.MinX,
+				height: elem.MaxY - elem.MinY,
+				left: elem.MinX + this.canvasCenterX,
+				top: elem.MinY + this.canvasCenterY
+				//transform: translate(rect.Min.X + this.canvasCenterX, rect.Min.Y + this.canvasCenterY)
+			});
+		}
+	}
+
+	function eventHandler(event) {
+		//view.trace("sendEvent #3");
+		for (var iy = 0; iy < 5; iy++) {
+			for (var ix = 0; ix < 5; ix++) {
+				var i = ix + iy * 5;
+				switch (event) {
+					case 1: {//"InvalidateAll": {
+						this.eventInvalidateAll(e);
+						break;
+					}
+					case 2: {//"InvalidateRect": {
+						var e = {VcIDs: [i]};
+						this.eventInvalidateRect(e);
+						break;
+					}
+					case 3: {//"RevalidateRect": {
+						var e = {VcIDs: [i]};
+						this.eventRevalidateRect(e);
+						break;
+					}
+					case 4: {//"SetImage": {
+						var img = new Image(64, 64, Graphics.RGBA("red"), function(gfx) {});
+						var e = {VcIDs: [i], X: ix * 66, Y: iy * 66, Array: img.toBytes(), Valid: true};
+						this.eventSetImage(e);
+						break;
+					}
+					case 5: {//"SetPixel": {
+						var e = {X: ix * 66 + rand(64), Y: iy * 66 + rand(64), R: rand(256), G: rand(256), B: rand(256), A: 255, VcID: i};
+						this.eventSetPixel(e);
+						break;
+					}
+					case 6: {//"SignalDownload": {
+						var e = {VcIDs: [i]};
+						this.eventSignalDownload(e);
+						break;
+					}
+					case 7: {//"ChunksChange": {
+						var e = {Remove: [i], Create: [{Rect: {Min: {X: ix * 66, Y: iy * 66},Max: {X: ix * 66 + 64, Y: iy * 66 + 64}}, VcID: i}]};
+						this.eventChunksChange(e);
+						break;
+					}
+				}
+			}
+		}
+		//view.trace("sendEvent #4");
+	}
+}
