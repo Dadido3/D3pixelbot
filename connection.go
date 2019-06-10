@@ -32,4 +32,4 @@ type connectionType struct {
 	FunctionNew func() (connection, *canvas)
 }
 
-var connectionTypes map[string]connectionType
+var connectionTypes = map[string]connectionType{}

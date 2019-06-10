@@ -93,8 +93,6 @@ func (chu *chunk) setPixel(pos image.Point, col color.Color) error {
 		return fmt.Errorf("Position is outside of the chunk")
 	}
 
-	// TODO: Check if colorIndex is valid
-
 	if chu.Valid {
 		switch img := chu.Image.(type) {
 		case *image.RGBA:
@@ -133,7 +131,10 @@ func (chu *chunk) setPixelIndex(pos image.Point, colorIndex uint8) error {
 	if int(colorIndex) >= len(img.Palette) {
 		return fmt.Errorf("Color index outside of available palette")
 	}
-	img.SetColorIndex(pos.X, pos.Y, colorIndex)
+
+	if chu.Valid {
+		img.SetColorIndex(pos.X, pos.Y, colorIndex)
+	}
 
 	// If chunk is downloading, append to queue to draw them later
 	if chu.Downloading {
@@ -173,7 +174,7 @@ func (chu *chunk) setImage(srcImg image.Image) (image.Image, error) {
 	}
 
 	// If images are equal, copy nothing
-	if compareImages(chu.Image, subImg) && len(chu.PixelQueue) == 0 {
+	if compareImages(chu.Image, subImg) && len(chu.PixelQueue) == 0 { // TODO: Make it work if there are elements in the pixel queue. They need to be put after the revalidate event
 		chu.PixelQueue = []pixelQueueElement{}
 		chu.Downloading = false
 		chu.Valid = true

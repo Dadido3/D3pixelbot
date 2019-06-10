@@ -91,7 +91,7 @@ type canvas struct {
 	Chunks    map[chunkCoordinate]*chunk
 
 	EventChan        chan interface{} // Forwards incoming canvasEvent* events to the goroutine
-	ChunkRequestChan chan *chunk      // Chunk download requests that go to the game connection // TODO: Convert it to a method, not a channel
+	ChunkRequestChan chan *chunk      // Chunk download requests that go to the game connection
 }
 
 func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectangle) (*canvas, <-chan *chunk) {
@@ -101,7 +101,7 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 		Rect:             canvasRect,
 		Chunks:           make(map[chunkCoordinate]*chunk),
 		EventChan:        make(chan interface{}), // TODO: Determine optimal chan size (Add waitGroup when channel buffering is enabled!)
-		ChunkRequestChan: make(chan *chunk, 50),
+		ChunkRequestChan: make(chan *chunk, 500),
 	}
 
 	handleChunk := func(chunk *chunk, resetTime bool) {

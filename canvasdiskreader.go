@@ -311,7 +311,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	go func() {
 		someTime := startRecTime
 		for range tic.C {
-			someTime = someTime.Add(1 * time.Second)
+			someTime = someTime.Add(4 * time.Second)
 			cdr.TimeChan <- someTime
 		}
 	}()

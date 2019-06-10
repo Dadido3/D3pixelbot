@@ -77,8 +77,16 @@ type connectionPixelcanvasio struct {
 	ChunkDownloadChan <-chan *chunk // Receives download requests from the canvas
 }
 
-var pixelcanvasioConnection *connectionPixelcanvasio
+var pixelcanvasioConnection *connectionPixelcanvasio // TODO: Use/Create something similar to sync.Once, but with a counter
 var pixelcanvasioConnectionMutex = &sync.Mutex{}
+
+func init() {
+	// Register connection types (all init functions are called from a single thread, thus threadsafe)
+	connectionTypes["pixelcanvasio"] = connectionType{
+		Name:        "PixelCanvas.io",
+		FunctionNew: newPixelcanvasio,
+	}
+}
 
 func newPixelcanvasio() (connection, *canvas) {
 	pixelcanvasioConnectionMutex.Lock()
@@ -132,10 +140,10 @@ func newPixelcanvasio() (connection, *canvas) {
 	}()
 
 	myClient := &http.Client{Timeout: 1 * time.Minute}
-	downloadWaitgroup := sync.WaitGroup{}
+	downloadWaitgroup := sync.WaitGroup{}   // To wait until all downloads are finished
 	downloadLimit := make(chan struct{}, 3) // Limit maximum amount of simultaneous downloads to 3
 	handleDownload := func(chu *chunk) error {
-		// Round to nearest bigchunk // TODO: Simplify, especially because there is now an origin
+		// Round to nearest bigchunk // TODO: Simplify, especially as there is an origin parameter now
 		ccOffset := image.Point(pixelcanvasioChunkSize).Mul(pixelcanvasioChunkCollectionRadius)
 		cc := pixelcanvasioChunkCollectionSize.getPixelSize(pixelcanvasioChunkSize).getChunkCoord(chu.Rect.Min.Add(ccOffset), image.Point{})
 		cc.X, cc.Y = cc.X*pixelcanvasioChunkCollectionSize.X, cc.Y*pixelcanvasioChunkCollectionSize.Y
@@ -154,11 +162,16 @@ func newPixelcanvasio() (connection, *canvas) {
 		}
 		// TODO: Only setImage on chunks returned by signalDownload
 
+		log.Tracef("Download at %v signalled", cc)
+
 		downloadWaitgroup.Add(1)
 		go func() {
 			downloadLimit <- struct{}{} // Block inside the goroutine, so downloads will queue up without blocking anything else
 			defer downloadWaitgroup.Done()
 			defer func() { <-downloadLimit }()
+
+			startTime := time.Now()
+			log.Tracef("Download at %v started", cc)
 
 			r, err := myClient.Get(fmt.Sprintf("https://pixelcanvas.io/api/bigchunk/%v.%v.bmp", cc.X, cc.Y))
 			if err != nil {
@@ -175,11 +188,12 @@ func newPixelcanvasio() (connection, *canvas) {
 			expectedLen := pixelcanvasioChunkSize.X * pixelcanvasioChunkSize.Y * ((pixelcanvasioChunkCollectionSize.X) * (pixelcanvasioChunkCollectionSize.Y)) / 2
 			if len(raw) != expectedLen {
 				log.Errorf("Returned image data has the wrong length (%v, expected %v)", len(raw), expectedLen)
-				if len(raw) < 1000 {
-					log.Errorf("API returned %v", string(raw))
-				}
+				log.Errorf("API returned %v", string(raw[:1000]))
 				return
 			}
+
+			downloadTime := time.Now().Sub(startTime).Seconds()
+			startTime = time.Now()
 
 			img := image.NewPaletted(ca, pixelcanvasioPalette)
 			i := 0
@@ -205,7 +219,8 @@ func newPixelcanvasio() (connection, *canvas) {
 				}
 			}
 
-			startTime := time.Now()
+			drawTime := time.Now().Sub(startTime).Seconds()
+			startTime = time.Now()
 
 			err = con.Canvas.setImage(img, false, true)
 			if err != nil {
@@ -213,7 +228,8 @@ func newPixelcanvasio() (connection, *canvas) {
 				return
 			}
 
-			log.Debugf("setImage() took %vs", time.Now().Sub(startTime).Seconds())
+			setTime := time.Now().Sub(startTime).Seconds()
+			log.Tracef("Times for %v: Download %.3fs, Drawing %.3fs, setImage() %.5fs ", cc, downloadTime, drawTime, setTime)
 
 		}()
 
@@ -283,6 +299,8 @@ func newPixelcanvasio() (connection, *canvas) {
 				c.Close()
 			}(c, quitChannel)
 
+			log.Debugf("Websocket connection opened")
+
 			// Handle events
 			for {
 				_, message, err := c.ReadMessage()
@@ -308,7 +326,7 @@ func newPixelcanvasio() (connection, *canvas) {
 								Y: int(cy)*pixelcanvasioChunkSize.Y + oy,
 							}
 							if err := con.Canvas.setPixel(pos, color); err != nil {
-								log.Warningf("Couldn't draw pixel at %v with color %v: %v", pos, colorIndex, err)
+								log.Debugf("Couldn't draw pixel at %v with color %v: %v", pos, colorIndex, err)
 							}
 						}
 					default:
@@ -317,9 +335,11 @@ func newPixelcanvasio() (connection, *canvas) {
 
 				}
 			}
+			log.Debugf("Websocket connection closed")
 			close(chunkDownloaderQuit)
 			close(quitChannel)
 			downloadWaitgroup.Wait() // Wait until all chunk downloads are finished
+			log.Tracef("All downloads finished")
 
 			con.Canvas.invalidateAll()
 

@@ -164,6 +164,8 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 2. Connect to WS server: `URL + "/?fingerprint=" + fingerprint`  
    The fingerprint doesn't need to be same as sent in the me request. But it needs to be a valid hexadecimal, 32 nibbles long.
 
+The connection will be terminated by the server after half an hour, to get rid of old connections.
+
 ### Incoming
 
 - Pixel Update

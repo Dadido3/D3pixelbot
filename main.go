@@ -16,6 +16,8 @@
 
 // TODO: Change channels to be handled and closed by the sending side, to prevent write access to already closed channels.
 // TODO: Redo most of the goroutine stopping mechanism
+// TODO: Add manifest for DPI awareness: https://github.com/c-smile/sciter-sdk/blob/master/demos/usciter/win-res/dpi-aware.manifest
+// TODO: Add way to gracefully stop everything when main window closes, or when the console closes.
 
 package main
 
@@ -33,6 +35,11 @@ import (
 )
 
 var log = logrus.New()
+
+func init() {
+	runtime.LockOSThread() // Locks the whole program to the main thread (Except newly spawned goroutines). That's needed for the UI to work properly.
+	// TODO: Only lock when UI is needed (If headless mode is configured), or use lib to call sciterOpenMain() from main thread.
+}
 
 func main() {
 	log.SetReportCaller(true)
@@ -69,15 +76,6 @@ func main() {
 	defer pFile.Close()
 	pprof.StartCPUProfile(pFile)
 	defer pprof.StopCPUProfile()*/
-
-	// Init connection types
-	// TODO: Add connectionTypes in each game connection go file
-	connectionTypes = map[string]connectionType{
-		"pixelcanvasio": connectionType{
-			Name:        "PixelCanvas.io",
-			FunctionNew: newPixelcanvasio,
-		},
-	}
 
 	sciterOpenMain()
 }

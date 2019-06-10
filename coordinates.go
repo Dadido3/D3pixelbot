@@ -29,6 +29,8 @@ type (
 )
 
 // Converts a pixel coordinate into a chunk coordinate containing the given pixel
+//
+// Positive origin values move the chunk grid into negative direction
 func (ps pixelSize) getChunkCoord(coord image.Point, origin image.Point) chunkCoordinate {
 	return chunkCoordinate{
 		X: divideFloor(coord.X+origin.X, ps.X),
@@ -38,6 +40,8 @@ func (ps pixelSize) getChunkCoord(coord image.Point, origin image.Point) chunkCo
 
 // Converts a pixel rectangle into the closest possible rectangle in chunk coordinates.
 // The given pixel rectangle will always be inside or equal to the resulting chunk rectangle.
+//
+// Positive origin values move the chunk grid into negative direction
 func (ps pixelSize) getOuterChunkRect(rect image.Rectangle, origin image.Point) chunkRectangle {
 	rectTemp := rect.Canon().Add(origin)
 
@@ -60,6 +64,8 @@ func (ps pixelSize) getOuterChunkRect(rect image.Rectangle, origin image.Point) 
 // The resulting chunk rectangle will always be inside or equal to the given pixel rectangle.
 //
 // Be aware that the resulting rectangle can have a length of 0 in any axis!
+//
+// Positive origin values move the chunk grid into negative direction
 func (ps pixelSize) getInnerChunkRect(rect image.Rectangle, origin image.Point) chunkRectangle {
 	rectTemp := rect.Canon().Add(origin)
 
@@ -86,6 +92,8 @@ func (ps pixelSize) getInnerChunkRect(rect image.Rectangle, origin image.Point) 
 }
 
 // Converts a rectangle from chunk coordinates into pixel coordinates
+//
+// Positive origin values moves the chunk grid into negative direction
 func (ps chunkRectangle) getPixelRectangle(chunkSize pixelSize, origin image.Point) image.Rectangle {
 	rectTemp := ps.Canon()
 

@@ -24,6 +24,7 @@ import (
 	"github.com/sciter-sdk/go-sciter/window"
 )
 
+// ONLY CALL FROM MAIN THREAD!
 func sciterOpenMain() {
 	//sciter.SetOption(sciter.SCITER_SET_DEBUG_MODE, 1)
 	sciter.SetOption(sciter.SCITER_SET_SCRIPT_RUNTIME_FEATURES, sciter.ALLOW_FILE_IO|sciter.ALLOW_SOCKET_IO|sciter.ALLOW_EVAL|sciter.ALLOW_SYSINFO) // Needed for the inspector to work!
