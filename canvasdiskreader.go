@@ -45,7 +45,7 @@ type canvasDiskReader struct {
 func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	cdr := &canvasDiskReader{
 		ShortName: shortName,
-		TimeChan:  make(chan time.Time),
+		TimeChan:  make(chan time.Time, 1),
 	}
 
 	fileDirectory := filepath.Join(".", "recordings", shortName)
@@ -118,6 +118,9 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	cdr.Canvas, _ = newCanvas(chunkSize, origin, image.Rect(math.MinInt32, math.MinInt32, math.MaxInt32, math.MaxInt32))
 
 	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
 		defer log.Tracef("Closed recording goroutine of %v", shortName)
 
 		curTime := <-cdr.TimeChan
@@ -174,113 +177,135 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 					// Invalidate all on file close
 					defer cdr.Canvas.invalidateAll()
 
+					// Loop that retrieves all the events until recTime >= curTime
 					for {
-						tempTime, ok := <-cdr.TimeChan
-						if !ok {
-							return false, true // Close goroutine
-						}
-						if tempTime.Before(curTime) {
-							return true, false // Start from the beginning again
-						}
-						//log.Tracef("Change time from %v to %v (recTime: %v)", curTime, tempTime, recTime)
-						curTime = tempTime
 
-						// Do until recTime >= curTime
-						for recTime.Before(curTime) {
-							// Read and send events
-							var dataType uint8
-							var binTime int64
-							err := binary.Read(zipReader, binary.LittleEndian, &dataType)
+						select {
+						case <-ticker.C:
+							cdr.Canvas.setTime(recTime) // Send out time update every xxx ms
+						default:
+						}
+
+						// Get next point in time
+						select {
+						case tempTime, ok := <-cdr.TimeChan:
+							if !ok {
+								return false, true // Close goroutine
+							}
+							if tempTime.Before(curTime) {
+								curTime = tempTime
+								return true, false // Start from the beginning again
+							}
+							curTime = tempTime
+						default:
+							if curTime.Before(recTime) {
+								cdr.Canvas.setTime(recTime)
+								tempTime, ok := <-cdr.TimeChan // Block here, until new time arrives
+								if !ok {
+									return false, true // Close goroutine
+								}
+								if tempTime.Before(curTime) {
+									curTime = tempTime
+									return true, false // Start from the beginning again
+								}
+								curTime = tempTime
+							}
+						}
+
+						// Read and send events
+						var dataType uint8
+						var binTime int64
+						err := binary.Read(zipReader, binary.LittleEndian, &dataType)
+						if err != nil {
+							log.Warnf("Error while reading file %v: %v", fileName, err)
+							return false, false
+						}
+						err = binary.Read(zipReader, binary.LittleEndian, &binTime)
+						if err != nil {
+							log.Warnf("Error while reading file %v: %v", fileName, err)
+							return false, false
+						}
+						recTime = time.Unix(0, binTime)
+
+						switch dataType {
+						case 10: // SetPixel
+							var dat struct {
+								X, Y    int32
+								R, G, B uint8
+							}
+							err := binary.Read(zipReader, binary.LittleEndian, &dat)
 							if err != nil {
 								log.Warnf("Error while reading file %v: %v", fileName, err)
 								return false, false
 							}
-							err = binary.Read(zipReader, binary.LittleEndian, &binTime)
+							cdr.Canvas.setPixel(image.Point{int(dat.X), int(dat.Y)}, color.RGBA{dat.R, dat.G, dat.B, 255})
+
+						case 20: // InvalidateRect
+							var dat struct {
+								MinX, MinY, MaxX, MaxY int32
+							}
+							err := binary.Read(zipReader, binary.LittleEndian, &dat)
 							if err != nil {
 								log.Warnf("Error while reading file %v: %v", fileName, err)
 								return false, false
 							}
-							recTime = time.Unix(0, binTime)
+							cdr.Canvas.invalidateRect(image.Rect(int(dat.MinX), int(dat.MinY), int(dat.MaxX), int(dat.MaxY)))
 
-							switch dataType {
-							case 10: // SetPixel
-								var dat struct {
-									X, Y    int32
-									R, G, B uint8
-								}
-								err := binary.Read(zipReader, binary.LittleEndian, &dat)
-								if err != nil {
-									log.Warnf("Error while reading file %v: %v", fileName, err)
-									return false, false
-								}
-								cdr.Canvas.setPixel(image.Point{int(dat.X), int(dat.Y)}, color.RGBA{dat.R, dat.G, dat.B, 255})
+						case 21: // InvalidateAll
+							cdr.Canvas.invalidateAll()
 
-							case 20: // InvalidateRect
-								var dat struct {
-									MinX, MinY, MaxX, MaxY int32
-								}
-								err := binary.Read(zipReader, binary.LittleEndian, &dat)
-								if err != nil {
-									log.Warnf("Error while reading file %v: %v", fileName, err)
-									return false, false
-								}
-								cdr.Canvas.invalidateRect(image.Rect(int(dat.MinX), int(dat.MinY), int(dat.MaxX), int(dat.MaxY)))
+						case 22: // RevalidateRect
+							var dat struct {
+								MinX, MinY, MaxX, MaxY int32
+							}
+							err := binary.Read(zipReader, binary.LittleEndian, &dat)
+							if err != nil {
+								log.Warnf("Error while reading file %v: %v", fileName, err)
+								return false, false
+							}
+							cdr.Canvas.revalidateRect(image.Rect(int(dat.MinX), int(dat.MinY), int(dat.MaxX), int(dat.MaxY)))
 
-							case 21: // InvalidateAll
-								cdr.Canvas.invalidateAll()
+						case 30: // SetImage
+							var dat struct {
+								X, Y int32
+								Size uint32
+							}
+							err := binary.Read(zipReader, binary.LittleEndian, &dat)
+							if err != nil {
+								log.Warnf("Error while reading file %v: %v", fileName, err)
+								return false, false
+							}
+							rawBytes := make([]byte, dat.Size)
+							_, err = io.ReadFull(zipReader, rawBytes)
+							if err != nil {
+								log.Warnf("Error while reading file %v: %v", fileName, err)
+								return false, false
+							}
+							img, imageFormat, err := image.Decode(bytes.NewBuffer(rawBytes))
+							if err != nil {
+								log.Warnf("Error while reading %v image from %v: %v", imageFormat, fileName, err)
+								return false, false
+							}
 
-							case 22: // RevalidateRect
-								var dat struct {
-									MinX, MinY, MaxX, MaxY int32
-								}
-								err := binary.Read(zipReader, binary.LittleEndian, &dat)
-								if err != nil {
-									log.Warnf("Error while reading file %v: %v", fileName, err)
-									return false, false
-								}
-								cdr.Canvas.revalidateRect(image.Rect(int(dat.MinX), int(dat.MinY), int(dat.MaxX), int(dat.MaxY)))
-
-							case 30: // SetImage
-								var dat struct {
-									X, Y int32
-									Size uint32
-								}
-								err := binary.Read(zipReader, binary.LittleEndian, &dat)
-								if err != nil {
-									log.Warnf("Error while reading file %v: %v", fileName, err)
-									return false, false
-								}
-								rawBytes := make([]byte, dat.Size)
-								_, err = io.ReadFull(zipReader, rawBytes)
-								if err != nil {
-									log.Warnf("Error while reading file %v: %v", fileName, err)
-									return false, false
-								}
-								img, imageFormat, err := image.Decode(bytes.NewBuffer(rawBytes))
-								if err != nil {
-									log.Warnf("Error while reading %v image from %v: %v", imageFormat, fileName, err)
-									return false, false
-								}
-
-								// Move image to X and Y
-								switch img := img.(type) {
-								case *image.Paletted:
-									img.Rect = img.Rect.Add(image.Point{int(dat.X), int(dat.Y)})
-								case *image.RGBA:
-									img.Rect = img.Rect.Add(image.Point{int(dat.X), int(dat.Y)})
-								default:
-									log.Warnf("Unknown internal image type %T in %v", img, fileName)
-								}
-
-								cdr.Canvas.signalDownload(img.Bounds())
-								cdr.Canvas.setImage(img, false, true)
-
+							// Move image to X and Y
+							switch img := img.(type) {
+							case *image.Paletted:
+								img.Rect = img.Rect.Add(image.Point{int(dat.X), int(dat.Y)})
+							case *image.RGBA:
+								img.Rect = img.Rect.Add(image.Point{int(dat.X), int(dat.Y)})
 							default:
-								log.Warnf("Found invalid data type %v in %v", dataType, fileName)
-								return false, false
-
+								log.Warnf("Unknown internal image type %T in %v", img, fileName)
 							}
+
+							cdr.Canvas.signalDownload(img.Bounds())
+							cdr.Canvas.setImage(img, false, true)
+
+						default:
+							log.Warnf("Found invalid data type %v in %v", dataType, fileName)
+							return false, false
+
 						}
+
 					}
 				}()
 				if close {
@@ -299,6 +324,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 					return // Close goroutine
 				}
 				if tempTime.Before(curTime) {
+					curTime = tempTime
 					break // Start from the beginning again
 				}
 				curTime = tempTime
@@ -306,19 +332,24 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 		}
 	}()
 
-	// Test
-	tic := time.NewTicker(5 * time.Millisecond)
-	go func() {
-		someTime := startRecTime
-		for range tic.C {
-			someTime = someTime.Add(4 * time.Second)
-			cdr.TimeChan <- someTime
-		}
-	}()
-
 	cdr.TimeChan <- startRecTime
 
 	return cdr, cdr.Canvas, nil
+}
+
+func (cdr *canvasDiskReader) setReplayTime(t time.Time) error {
+	// Write  into channel, or replace the current element if the channel is full
+	select {
+	case cdr.TimeChan <- t:
+	default:
+		select {
+		case <-cdr.TimeChan:
+		default:
+		}
+		cdr.TimeChan <- t
+	}
+
+	return nil
 }
 
 func (cdr *canvasDiskReader) getShortName() string {

@@ -62,6 +62,10 @@ type canvasEventListenerRects struct {
 	Rects    []image.Rectangle
 }
 
+type canvasEventSetTime struct {
+	Time time.Time
+}
+
 type canvasListener interface {
 	handleChunksChange(create, remove map[image.Rectangle]int) error
 
@@ -71,6 +75,7 @@ type canvasListener interface {
 	handleSetPixel(pos image.Point, color color.Color, vcID int) error
 	handleSignalDownload(rect image.Rectangle, vcIDs []int) error
 	handleRevalidateRect(rect image.Rectangle, vcIDs []int) error
+	handleSetTime(t time.Time) error
 }
 
 type canvasListenerState struct {
@@ -89,6 +94,8 @@ type canvas struct {
 	Origin    image.Point     // Offset of the chunks in pixels. Positive values move the chunks to the top left.
 	Rect      image.Rectangle // Valid area of the canvas // TODO: Enforce canvas limit
 	Chunks    map[chunkCoordinate]*chunk
+
+	Time time.Time
 
 	EventChan        chan interface{} // Forwards incoming canvasEvent* events to the goroutine
 	ChunkRequestChan chan *chunk      // Chunk download requests that go to the game connection
@@ -277,6 +284,10 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 							listener.handleSignalDownload(event.Rect, vcsSlice)
 						}
 					}
+				case canvasEventSetTime:
+					for listener := range listeners {
+						listener.handleSetTime(event.Time)
+					}
 				case canvasEventListenerSubscribe:
 					//log.Tracef("Listener %v subscribed", event.Listener)
 					listeners[event.Listener] = &canvasListenerState{
@@ -294,6 +305,12 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 							}
 						}
 					}
+
+					t, err := can.getTime()
+					if err == nil {
+						event.Listener.handleSetTime(t)
+					}
+
 				case canvasEventListenerUnsubscribe:
 					//log.Tracef("Listener %v unsubscribed", event.Listener)
 					delete(listeners, event.Listener)
@@ -702,6 +719,40 @@ func (can *canvas) invalidateAll() error {
 	can.EventChan <- canvasEventInvalidateAll{}
 
 	return nil
+}
+
+// Sets the current time of the canvas
+func (can *canvas) setTime(t time.Time) error {
+	can.ClosedMutex.RLock()
+	defer can.ClosedMutex.RUnlock()
+	if can.Closed {
+		return fmt.Errorf("Canvas is closed")
+	}
+
+	can.Lock()
+	can.Time = t
+	can.Unlock()
+
+	// Forward event to broadcaster goroutine
+	can.EventChan <- canvasEventSetTime{
+		Time: t,
+	}
+
+	return nil
+}
+
+// Gets the current time of the canvas
+func (can *canvas) getTime() (time.Time, error) {
+	can.ClosedMutex.RLock()
+	defer can.ClosedMutex.RUnlock()
+	if can.Closed {
+		return time.Time{}, fmt.Errorf("Canvas is closed")
+	}
+
+	can.RLock()
+	defer can.RUnlock()
+
+	return can.Time, nil
 }
 
 // Returns true if the all intersecting chunks are valid and existent

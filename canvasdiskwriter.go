@@ -287,6 +287,18 @@ func (cdw *canvasDiskWriter) handleChunksChange(create, remove map[image.Rectang
 	return nil
 }
 
+func (cdw *canvasDiskWriter) handleSetTime(t time.Time) error {
+	cdw.ClosedMutex.RLock()
+	defer cdw.ClosedMutex.RUnlock()
+	if cdw.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
+	// There is no need to write that data to disk
+
+	return nil
+}
+
 func (cdw *canvasDiskWriter) Close() {
 	cdw.Canvas.unsubscribeListener(cdw)
 	cdw.handleInvalidateAll()

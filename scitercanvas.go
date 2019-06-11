@@ -24,6 +24,8 @@ import (
 	"image/color"
 	"path/filepath"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/sciter-sdk/go-sciter"
 	"github.com/sciter-sdk/go-sciter/window"
@@ -89,7 +91,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 				}
 				events = append(events, event)
 			batchLoop:
-				for i := 1; i < 25; i++ { // Limit batch size to 25
+				for i := 1; i < 50; i++ { // Limit batch size to 50
 					select {
 					case event, ok := <-channel:
 						if ok {
@@ -175,6 +177,49 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		}
 
 		return nil
+	})
+
+	w.DefineFunction("setReplayTime", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 1 {
+			return sciter.NewValue("Wrong number of parameters")
+		}
+		jsonRect := args[0] // Clone if value is needed after this function returned
+		if !jsonRect.IsDate() {
+			return sciter.NewValue("Wrong type of parameters")
+		}
+
+		conR, ok := con.(connectionReplay) // Check if connection has replay time methods
+		if !ok {
+			return sciter.NewValue("Can't set replay time on %T", con)
+		}
+
+		ft := &syscall.Filetime{
+			LowDateTime:  uint32(jsonRect.Int64()),
+			HighDateTime: uint32(jsonRect.Int64() >> 32),
+		}
+
+		t := time.Unix(0, ft.Nanoseconds())
+
+		err := conR.setReplayTime(t)
+		if err != nil {
+			return sciter.NewValue(err.Error())
+		}
+
+		return sciter.NewValue(true)
+	})
+
+	// TODO: Hide UI if connection doesn't have the replayTime method
+	w.DefineFunction("hasReplayTime", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 0 {
+			return sciter.NewValue("Wrong number of parameters")
+		}
+
+		_, ok := con.(connectionReplay) // Check if connection has replay time methods
+		if !ok {
+			return sciter.NewValue("%T doesn't support setReplayTime", con)
+		}
+
+		return sciter.NewValue(true)
 	})
 
 	closedChan = make(chan struct{}) // Signals that the window got closed
@@ -407,6 +452,22 @@ func (s *sciterCanvas) handleChunksChange(create, remove map[image.Rectangle]int
 
 	val := sciter.NewValue()
 	val.ConvertFromString(string(b), sciter.CVT_JSON_LITERAL)
+	s.handlerChan <- val
+
+	return nil
+}
+
+func (s *sciterCanvas) handleSetTime(t time.Time) error {
+	s.ClosedMutex.RLock()
+	defer s.ClosedMutex.RUnlock()
+	if s.Closed {
+		return fmt.Errorf("Listener is closed")
+	}
+
+	val := sciter.NewValue()
+	val.Set("Type", "SetTime")
+	val.Set("RFC3339Nano", t.Format(time.RFC3339Nano))
+
 	s.handlerChan <- val
 
 	return nil

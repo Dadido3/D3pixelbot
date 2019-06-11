@@ -16,6 +16,8 @@
 
 package main
 
+import "time"
+
 type connection interface {
 	getShortName() string // Return short and filesystem friendly name, also used as internal identifier
 	getName() string      // Return full name for display purposes
@@ -24,6 +26,13 @@ type connection interface {
 
 	getOnlinePlayers() int
 	Close()
+}
+
+// Same as connection, but it has some additional methods to set the replay time
+type connectionReplay interface {
+	connection
+
+	setReplayTime(t time.Time) error
 }
 
 type connectionType struct {

@@ -1,7 +1,7 @@
 class PixCanvas : Behavior {
 	function attached() {
-		this.canvasWidth = 10000;
-		this.canvasHeight = 10000;
+		this.canvasWidth = 100000;
+		this.canvasHeight = 100000;
 		this.canvasCenterX = 0; // Offset to the center coordinate, as the container element can't be moved
 		this.canvasCenterY = 0;
 		this.zoom = 1.0;
@@ -232,6 +232,14 @@ class PixCanvas : Behavior {
 		}
 	}
 
+	function eventSetTime(event) {
+		this.time = new Date(event.RFC3339Nano);
+
+		if (this.timeCallback) {
+			this.timeCallback(this.time);
+		}
+	}
+
 	function eventHandler(events) {
 		for (var e in events) {
 			switch (e.Type) {
@@ -261,6 +269,10 @@ class PixCanvas : Behavior {
 				}
 				case "ChunksChange": {
 					this.eventChunksChange(e);
+					break;
+				}
+				case "SetTime": {
+					this.eventSetTime(e);
 					break;
 				}
 			}
