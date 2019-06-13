@@ -33,6 +33,7 @@ type connectionReplay interface {
 	connection
 
 	setReplayTime(t time.Time) error
+	getRecordStartTime() time.Time
 }
 
 type connectionType struct {

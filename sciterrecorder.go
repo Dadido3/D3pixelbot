@@ -56,6 +56,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 	w.DefineFunction("getRects", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 0 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 
@@ -65,6 +66,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 		b, err := json.Marshal(rects)
 		if err != nil {
+			log.Errorf("Error marshalling json: %v", err)
 			return sciter.NewValue(fmt.Sprintf("Error marshalling json: %v", err))
 		}
 
@@ -75,10 +77,12 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 	w.DefineFunction("registerRects", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 		jsonRects := args[0] // Clone if value is needed after this function returned
 		if !jsonRects.IsObject() {
+			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
@@ -86,6 +90,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 		rects := []image.Rectangle{}
 		if err := json.Unmarshal([]byte(jsonRects.String()), &rects); err != nil {
+			log.Errorf("Error reading json: %v", err)
 			return sciter.NewValue(fmt.Sprintf("Error reading json: %v", err))
 		}
 
@@ -99,6 +104,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 	closedChan = make(chan struct{}) // Signals that the window got closed
 	w.DefineFunction("signalClosed", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 0 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 

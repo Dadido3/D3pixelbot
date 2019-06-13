@@ -68,3 +68,5 @@ $RECYCLE.BIN/
 
 debug
 __debug_bin
+
+*.pprof

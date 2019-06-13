@@ -22,11 +22,14 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/png"
+	"os"
 	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/nfnt/resize"
 	"github.com/sciter-sdk/go-sciter"
 	"github.com/sciter-sdk/go-sciter/window"
 )
@@ -51,17 +54,19 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		Closed:     true,
 	}
 
-	w, err := window.New(sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_GLASSY|sciter.SW_ENABLE_DEBUG, sciter.NewRect(50, 300, 800, 500))
+	w, err := window.New(sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_GLASSY|sciter.SW_ENABLE_DEBUG, sciter.NewRect(50, 300, 800, 800))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	w.DefineFunction("subscribeCanvasEvents", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 2 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 		obj, cbHandler := args[0].Clone(), args[1].Clone() // Always clone, otherwise those are just references to sciter values and will be invalid if used after return
 		if !obj.IsObject() || !cbHandler.IsObjectFunction() {
+			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
@@ -69,12 +74,14 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		defer sca.ClosedMutex.Unlock()
 
 		if sca.handlerChan != nil {
+			log.Errorf("Already subscribed")
 			return sciter.NewValue("Already subscribed")
 		}
 
 		err := can.subscribeListener(sca, true) // Let the canvas manage virtual chunks for us
 		if err != nil {
-			return sciter.NewValue("Can't subscribe to canvas: " + err.Error())
+			log.Errorf("Can't subscribe to canvas: %v", err)
+			return sciter.NewValue(fmt.Sprintf("Can't subscribe to canvas: %v", err))
 		}
 
 		sca.handlerChan = make(chan *sciter.Value, 300) // Can be after can.subscribeListener, as the ClosedMutex is still locked here
@@ -120,6 +127,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 
 	w.DefineFunction("unsubscribeCanvasEvents", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 0 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 
@@ -127,12 +135,14 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		defer sca.ClosedMutex.Unlock()
 
 		if sca.handlerChan == nil {
+			log.Errorf("Not subscribed")
 			return sciter.NewValue("Not subscribed")
 		}
 
 		err := can.unsubscribeListener(sca)
 		if err != nil {
-			return sciter.NewValue("Can't subscribe to canvas: " + err.Error())
+			log.Errorf("Can't unsubscribe to canvas: %v", err)
+			return sciter.NewValue(fmt.Sprintf("Can't unsubscribe to canvas: %v", err))
 		}
 
 		close(sca.handlerChan)
@@ -151,10 +161,12 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 
 	w.DefineFunction("registerRects", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 		jsonRect := args[0] // Clone if value is needed after this function returned
 		if !jsonRect.IsObject() {
+			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
@@ -162,6 +174,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 
 		rects := []image.Rectangle{}
 		if err := json.Unmarshal([]byte(jsonRect.String()), &rects); err != nil {
+			log.Errorf("Error reading json: %v", err)
 			return sciter.NewValue(fmt.Sprintf("Error reading json: %v", err))
 		}
 
@@ -181,16 +194,19 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 
 	w.DefineFunction("setReplayTime", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 		jsonRect := args[0] // Clone if value is needed after this function returned
 		if !jsonRect.IsDate() {
+			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
 		conR, ok := con.(connectionReplay) // Check if connection has replay time methods
 		if !ok {
-			return sciter.NewValue("Can't set replay time on %T", con)
+			log.Errorf("Can't set replay time on %T", con)
+			return sciter.NewValue(fmt.Sprintf("Can't set replay time on %T", con))
 		}
 
 		ft := &syscall.Filetime{
@@ -202,29 +218,89 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 
 		err := conR.setReplayTime(t)
 		if err != nil {
+			log.Errorf("Can't set replay time %T", err)
 			return sciter.NewValue(err.Error())
 		}
 
-		return sciter.NewValue(true)
+		return nil
 	})
 
 	// TODO: Hide UI if connection doesn't have the replayTime method
-	w.DefineFunction("hasReplayTime", func(args ...*sciter.Value) *sciter.Value {
+	w.DefineFunction("hasReplayTime", func(args ...*sciter.Value) (val *sciter.Value) {
+		val = sciter.NewValue()
+
 		if len(args) != 0 {
+			log.Errorf("Wrong number of parameters")
+			val.Set("Error", "Wrong number of parameters")
+			return
+		}
+
+		conRep, ok := con.(connectionReplay) // Check if connection has replay time methods
+		if !ok {
+			log.Errorf("%T doesn't support setReplayTime", con)
+			val.Set("Error", fmt.Sprintf("%T doesn't support setReplayTime", con))
+			return
+		}
+
+		val.Set("HasReplayTime", sciter.NewValue(true))
+		val.Set("StartTime", conRep.getRecordStartTime().Format(time.RFC3339Nano))
+
+		return val
+	})
+
+	w.DefineFunction("saveImage", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 4 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
-
-		_, ok := con.(connectionReplay) // Check if connection has replay time methods
-		if !ok {
-			return sciter.NewValue("%T doesn't support setReplayTime", con)
+		sciterRect, sciterSize, sciterPath, cbHandler := args[0], args[1], args[2], args[3].Clone() // Clone if value is needed after this function has returned
+		if !sciterRect.IsObject() || !sciterSize.IsObject() || !sciterPath.IsString() || !cbHandler.IsObjectFunction() {
+			log.Errorf("Wrong type of parameters")
+			return sciter.NewValue("Wrong type of parameters")
 		}
 
-		return sciter.NewValue(true)
+		min, max := sciterRect.Get("Min"), sciterRect.Get("Max")
+
+		rect := image.Rectangle{
+			image.Point{int(int32(min.Get("X").Int())), int(int32(min.Get("Y").Int()))},
+			image.Point{int(int32(max.Get("X").Int())), int(int32(max.Get("Y").Int()))},
+		}
+
+		size := pixelSize{sciterSize.Get("X").Int(), sciterSize.Get("Y").Int()}
+
+		filename := sciterPath.String()
+
+		log.Tracef("Starting to save image %v at %v with size of %v", filename, rect, size)
+
+		file, err := os.Create(filename)
+		if err != nil {
+			log.Errorf("Can't create file %v: %v", filename, err)
+			return sciter.NewValue(fmt.Sprintf("Can't create file %v: %v", filename, err))
+		}
+
+		go func() {
+			defer file.Close()
+
+			img, err := can.getImageCopy(rect, false, true)
+			if err != nil {
+				log.Errorf("Can't get image at %v: %v", rect, err)
+				return
+			}
+			resized := resize.Resize(uint(size.X), uint(size.Y), img, resize.Lanczos3)
+			png.Encode(file, resized)
+
+			log.Tracef("Finished to save image %v", filename)
+
+			cbHandler.Invoke(sciter.NewValue(), "[Native Script]")
+		}()
+
+		return nil
 	})
 
 	closedChan = make(chan struct{}) // Signals that the window got closed
 	w.DefineFunction("signalClosed", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 0 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 

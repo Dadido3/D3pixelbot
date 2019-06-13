@@ -4,6 +4,7 @@
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 		<style>
 			//@import url("styles/flat-theme.css");
+			@import url("styles/toggler.css");
 			@import url("prototypes/pixcanvas/pixcanvas.css");
 
             html {
@@ -64,6 +65,8 @@
 				border-spacing: 6dip;
 			}
 			.table > label {
+				min-width:max-content;
+				display: block;
 				padding: 4dip;
 				white-space: nowrap;
 				horizontal-align: left;
@@ -101,8 +104,8 @@
 				}
 
 				event click $(button) {
-					var fn = view.selectFile(#save, "PNG files (*.png)|*.png|All Files (*.*)|*.*", "png", this.value);
-					if( fn ) this.update(fn);
+					var fn = view.selectFile(#save, "PNG files (*.png)|*.png|All Files (*.*)|*.*", "png", URL.fromPath(this.value));
+					if( fn ) this.update(URL.toPath(fn));
 				}
 			}
 
@@ -110,37 +113,104 @@
 				pc.setZoom(this.value-2);
 			});
 
-			$(#replay-input > input(Date)).on("change", function() { // TODO: Create single gadget for date and time
-				var formValues = $(#replay-input).value;
+			$(#replay-time > input(Date)).on("change", function() { // TODO: Create single gadget for date and time
+				var formValues = $(#replay-time).value;
 				var rd = formValues.Date;
 				var rt = formValues.Time;
 				view.setReplayTime(Date.local(rd.year, rd.month, rd.day, rt.hour, rt.minute, rt.second));
 			});
 
-			$(#replay-input > input(Time)).on("change", function() {
-				var formValues = $(#replay-input).value;
+			$(#replay-time > input(Time)).on("change", function() {
+				var formValues = $(#replay-time).value;
 				var rd = formValues.Date;
 				var rt = formValues.Time;
 				view.setReplayTime(Date.local(rd.year, rd.month, rd.day, rt.hour, rt.minute, rt.second));
+			});
+
+			var timeTrigger;
+
+			function saveImage() {
+				var formValues = $(#output).value;
+				var filename = formValues.Filename;
+				filename = filename.replace("%count%", String.printf("%05d", formValues.Counter))
+				var err = view.saveImage(formValues.Rect, formValues.Size, filename, function() {timeTrigger = null;});
+				if (err) {
+					timeTrigger = null;
+				}
+				$(#output > input(Counter)).value ++;
+			}
+
+			$(#btn-save-image).on("click", function() {
+				saveImage();
 			});
 
 			pc.timeCallback = function(t) {
-				$(#replay-output).value = {
-					CanvasDate: t,
-					CanvasTime: t
+				$(#replay-current-time).value = {
+					Date: t,
+					Time: t
 				};
+
+				if ($(#output).value.Autosave && timeTrigger && t.valueOf() >= timeTrigger.valueOf()) {
+					saveImage();
+				}
 			};
 
+			// Autoplay timer (~25 fps)
+			pc.timer(40ms, function() {
+				var value = $(#replay-settings).value;
+
+				if (!value.Autoplay) {
+					return true;
+				}
+
+				if (timeTrigger && $(#output).value.Autosave) {
+					return true;
+				}
+
+				var interval = $(#replay-settings > input(Interval)).value;
+				var limit = $(#replay-settings > input(Limit)).value;
+
+				if ($(#output > input(Counter)).value >= limit) {
+					return true;
+				}
+
+				if (!interval || interval <= 0) {
+					return true;
+				}
+
+				var timeValues = $(#replay-time).value;
+				var rd = timeValues.Date;
+				var rt = timeValues.Time;
+				if (!rd || !rt) return true;
+				var ms = Date.local(rd.year, rd.month, rd.day, rt.hour, rt.minute, rt.second).valueOf();
+				ms += interval * 1000;
+				var t = new Date(ms);
+				
+				$(#replay-time).value = {
+					Date: t,
+					Time: t
+				};
+
+				view.setReplayTime(t);
+
+				if ($(#output).value.Autosave) {
+					timeTrigger = t;
+				}
+
+				return true;
+			});
+
 			function self.ready() {
-				view.connectToInspector();
-				$(#replay-output).value = {
-					CanvasDate: Date.now(),
-					CanvasTime: Date.now()
-				};
-				$(#replay-input).value = {
-					Date: Date.now(),
-					Time: Date.now()
-				};
+				//view.connectToInspector();
+				
+				var result = view.hasReplayTime();
+				if (result.HasReplayTime) {
+					var t = new Date(result.StartTime);
+					$(#replay-time).value = {
+						Date: t,
+						Time: t
+					};
+				}
 			}
 
 			function self.closing() {
@@ -154,28 +224,52 @@
 
 		<div#sidebar>
 			<span>Replay</span>
-			<form.table#replay-output>
+			<form.table#replay-current-time>
 				<label>Canvas Date: </label>
-				<output|date-local(CanvasDate)/>
+				<output|date-local(Date)/>
 				<label>Canvas Time:</label>
-				<output|time-local(CanvasTime)/>
+				<output|time-local(Time)/>
 			</form>
-			<form.table#replay-input>
-				<label>Input Date: </label>
+			<form.table#replay-time>
+				<label>Start Date: </label>
 				<input|date(Date)/>
-				<label>Input Time:</label>
+				<label>Start Time:</label>
 				<input|time(Time)/>
-				<label>OutputRect:</label>
+			</form>
+			<form.table#replay-settings>
+				<label>Autoplay:</label>
+				<button|toggler(Autoplay) checked=false>
+					<caption .false>Pause</caption>
+					<caption .true>Play</caption>
+				</button>
+				<label>Interval:</label>
+				<input|decimal(Interval) min=1 max=1000000 step=1 value=1/>
+				<label>Limit:</label>
+				<input|integer(Limit) min=1 max=1000000 step=1 value=100/>
+			</form>
+			<span>Output</span>
+			<form.table#output>
+				<label>Canvas:</label>
 				<div.table(Rect)>
-					<label>Min (X, Y):</label><div(Min)><input|integer(X) min=-10000000 max=10000000 step=1/><input|integer(Y) min=-10000000 max=10000000 step=1/></div>
-					<label>Max (X, Y):</label><div(Max)><input|integer(X) min=-10000000 max=10000000 step=1/><input|integer(Y) min=-10000000 max=10000000 step=1/></div>
+					<label>Min (X, Y):</label><div(Min)><input|integer(X) min=-10000000 max=10000000 step=1 value=-100/><input|integer(Y) min=-10000000 max=10000000 step=1 value=-100/></div>
+					<label>Max (X, Y):</label><div(Max)><input|integer(X) min=-10000000 max=10000000 step=1 value=100/><input|integer(Y) min=-10000000 max=10000000 step=1 value=100/></div>
 				</div>
-				<label>Output Size:</label>
+				<label>Image Size:</label>
 				<div.table(Size)>
-					<label>X, Y:</label><div><input|integer(X) min=1 max=2000 step=1/><input|integer(Y) min=1 max=2000 step=1/></div>
+					<label>X, Y:</label><div><input|integer(X) min=1 max=10000 step=1 value=200/><input|integer(Y) min=1 max=10000 step=1 value=200/></div>
 				</div>
-				<label>Output File:</label>
-				<input|path value="output.png"/>
+				<label>Filename:</label>
+				<input|path(Filename) value="./recordings/output_%count%.png"/>
+				<label>Counter:</label>
+				<input|integer(Counter) min=0 max=1000000 step=1 value=0/>
+				<label>Save:</label>
+				<button|toggler(Autosave) checked=false>
+					<caption .false>Manually</caption>
+					<caption .true>Automatic</caption>
+				</button>
+				<label>Save:</label>
+				<button#btn-save-image>Save now</button>
+      </button>
 			</form>
 			<span>Canvas</span>
 			<form.table#data>

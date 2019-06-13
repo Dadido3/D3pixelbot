@@ -1,0 +1,1 @@
+go tool pprof -http=: ./modular.exe./ mem.pprof

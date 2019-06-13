@@ -36,9 +36,11 @@ func sciterOpenMain() {
 
 	w.DefineFunction("openLocal", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 		if !args[0].IsString() {
+			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
@@ -46,6 +48,7 @@ func sciterOpenMain() {
 
 		connectionType, ok := connectionTypes[game]
 		if !ok {
+			log.Errorf("game %v not found", game)
 			return sciter.NewValue(fmt.Sprintf("game %v not found", game))
 		}
 
@@ -63,9 +66,11 @@ func sciterOpenMain() {
 
 	w.DefineFunction("recordLocal", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 		if !args[0].IsString() {
+			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
@@ -73,6 +78,7 @@ func sciterOpenMain() {
 
 		connectionType, ok := connectionTypes[game]
 		if !ok {
+			log.Errorf("game %v not found", game)
 			return sciter.NewValue(fmt.Sprintf("game %v not found", game))
 		}
 
@@ -90,9 +96,11 @@ func sciterOpenMain() {
 
 	w.DefineFunction("replayLocal", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
+			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
 		if !args[0].IsString() {
+			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
 
@@ -100,6 +108,7 @@ func sciterOpenMain() {
 
 		con, can, err := newCanvasDiskReader(game)
 		if err != nil {
+			log.Errorf("Can't open recording of %v: %v", game, err)
 			return sciter.NewValue(fmt.Sprintf("Can't open recording of %v: %v", game, err))
 		}
 

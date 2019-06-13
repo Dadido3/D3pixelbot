@@ -18,6 +18,7 @@
 // TODO: Redo most of the goroutine stopping mechanism
 // TODO: Add manifest for DPI awareness: https://github.com/c-smile/sciter-sdk/blob/master/demos/usciter/win-res/dpi-aware.manifest
 // TODO: Add way to gracefully stop everything when main window closes, or when the console closes.
+// TODO: Refactor most variable names when gorename works with modules
 
 package main
 
@@ -35,8 +36,15 @@ import (
 )
 
 var log = logrus.New()
+var wd string // Initial working directory (Executable directory)
 
 func init() {
+	var err error
+	wd, err = os.Getwd()
+	if err != nil {
+		log.Fatalf("Can't get working directory")
+	}
+
 	runtime.LockOSThread() // Locks the whole program to the main thread (Except newly spawned goroutines). That's needed for the UI to work properly.
 	// TODO: Only lock when UI is needed (If headless mode is configured), or use lib to call sciterOpenMain() from main thread.
 }
@@ -51,8 +59,8 @@ func main() {
 		},
 	})
 
-	os.MkdirAll(filepath.Join(".", "log"), os.ModePerm)
-	f, err := os.OpenFile(filepath.Join(".", "log", time.Now().UTC().Format("2006-01-02T150405")+".log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	os.MkdirAll(filepath.Join(wd, "log"), os.ModePerm)
+	f, err := os.OpenFile(filepath.Join(wd, "log", time.Now().UTC().Format("2006-01-02T150405")+".log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
@@ -61,7 +69,7 @@ func main() {
 	log.SetOutput(io.MultiWriter(colorable.NewColorableStdout(), f)) // TODO: Separate formatting for logfiles
 	log.SetLevel(logrus.TraceLevel)
 
-	viper.SetConfigFile(filepath.Join(".", "config.json"))
+	viper.SetConfigFile(filepath.Join(wd, "config.json"))
 	err = viper.ReadInConfig()
 	if err != nil {
 		log.Errorf("Can't load config file: %v", err)
@@ -69,7 +77,7 @@ func main() {
 
 	log.Info("D3pixelbot started")
 
-	/*pFile, err := os.Create("profile.out")
+	/*pFile, err := os.Create("cpu.pprof")
 	if err != nil {
 		log.Fatal(err)
 	}

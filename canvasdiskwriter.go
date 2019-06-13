@@ -54,7 +54,7 @@ func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, err
 	shortName = re.ReplaceAllString(shortName, "_")
 
 	fileName := time.Now().UTC().Format("2006-01-02T150405") + ".pixrec" // Use RFC3339 like encoding, but with : removed
-	fileDirectory := filepath.Join(".", "recordings", shortName)
+	fileDirectory := filepath.Join(wd, "recordings", shortName)
 	filePath := filepath.Join(fileDirectory, fileName)
 
 	os.MkdirAll(fileDirectory, 0777)

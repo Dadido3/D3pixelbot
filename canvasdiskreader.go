@@ -27,6 +27,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	_ "golang.org/x/image/bmp"
@@ -39,7 +40,9 @@ type canvasDiskReader struct {
 
 	Canvas *canvas
 
-	TimeChan chan time.Time // Sends point in time to goroutine
+	RecordStartTime time.Time
+	TimeChan        chan time.Time // Sends point in time to goroutine
+	QuitWaitGroup   sync.WaitGroup
 }
 
 func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
@@ -48,7 +51,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 		TimeChan:  make(chan time.Time, 1),
 	}
 
-	fileDirectory := filepath.Join(".", "recordings", shortName)
+	fileDirectory := filepath.Join(wd, "recordings", shortName)
 	files, err := ioutil.ReadDir(fileDirectory)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Can't read from %v", fileDirectory)
@@ -110,18 +113,21 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 		return time.Unix(0, dat.Time), pixelSize{int(dat.ChunkWidth), int(dat.ChunkHeight)}, image.Point{int(dat.OriginX), int(dat.OriginY)}, nil
 	}
 
-	startRecTime, chunkSize, origin, err := parseHeader(zipReader)
+	recordStartTime, chunkSize, origin, err := parseHeader(zipReader)
 	if err != nil {
 		return nil, nil, err
 	}
+	cdr.RecordStartTime = recordStartTime
 
 	cdr.Canvas, _ = newCanvas(chunkSize, origin, image.Rect(math.MinInt32, math.MinInt32, math.MaxInt32, math.MaxInt32))
 
+	cdr.QuitWaitGroup.Add(1)
 	go func() {
+		defer cdr.QuitWaitGroup.Done()
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 
-		defer log.Tracef("Closed recording goroutine of %v", shortName)
+		defer log.Tracef("Closed replay goroutine of %v", shortName)
 
 		curTime := <-cdr.TimeChan
 
@@ -134,13 +140,13 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 					// TODO: Jump over files that end before curTime
 
 					/*dateString := strings.TrimSuffix(recording.Name(), filepath.Ext(recording.Name()))
-					recTime, err := time.Parse("2006-01-02T150405", dateString)
+					replayTime, err := time.Parse("2006-01-02T150405", dateString)
 					if err != nil {
 						log.Warnf("Invalid formatted filename %v: %v", recording.Name(), err)
 						return false
 					}
 
-					if curTime.Before(recTime) {
+					if curTime.Before(replayTime) {
 						break
 					}*/
 
@@ -160,7 +166,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 					}
 					defer zipReader.Close()
 
-					recTime, chunkSize, origin, err := parseHeader(zipReader)
+					replayTime, chunkSize, origin, err := parseHeader(zipReader)
 					if err != nil {
 						log.Warn(err)
 						return false, false
@@ -177,12 +183,12 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 					// Invalidate all on file close
 					defer cdr.Canvas.invalidateAll()
 
-					// Loop that retrieves all the events until recTime >= curTime
+					// Loop that retrieves all the events until replayTime >= curTime
 					for {
 
 						select {
 						case <-ticker.C:
-							cdr.Canvas.setTime(recTime) // Send out time update every xxx ms
+							cdr.Canvas.setTime(replayTime) // Send out time update every xxx ms
 						default:
 						}
 
@@ -198,8 +204,8 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 							}
 							curTime = tempTime
 						default:
-							if curTime.Before(recTime) {
-								cdr.Canvas.setTime(recTime)
+							if curTime.Before(replayTime) {
+								cdr.Canvas.setTime(replayTime)
 								tempTime, ok := <-cdr.TimeChan // Block here, until new time arrives
 								if !ok {
 									return false, true // Close goroutine
@@ -225,7 +231,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 							log.Warnf("Error while reading file %v: %v", fileName, err)
 							return false, false
 						}
-						recTime = time.Unix(0, binTime)
+						replayTime = time.Unix(0, binTime)
 
 						switch dataType {
 						case 10: // SetPixel
@@ -332,7 +338,7 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 		}
 	}()
 
-	cdr.TimeChan <- startRecTime
+	cdr.TimeChan <- recordStartTime
 
 	return cdr, cdr.Canvas, nil
 }
@@ -352,6 +358,10 @@ func (cdr *canvasDiskReader) setReplayTime(t time.Time) error {
 	return nil
 }
 
+func (cdr *canvasDiskReader) getRecordStartTime() time.Time {
+	return cdr.RecordStartTime
+}
+
 func (cdr *canvasDiskReader) getShortName() string {
 	return fmt.Sprintf("replay-%v", cdr.ShortName)
 }
@@ -368,6 +378,7 @@ func (cdr *canvasDiskReader) getOnlinePlayers() int {
 func (cdr *canvasDiskReader) Close() {
 	// Stop goroutines gracefully
 	close(cdr.TimeChan)
+	cdr.QuitWaitGroup.Wait()
 
 	cdr.Canvas.Close()
 
