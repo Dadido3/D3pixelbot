@@ -1,4 +1,4 @@
-# Pixelcanvas Reverse Engineering information
+# PixelCanvas.io Reverse Engineering information
 
 ## General information
 

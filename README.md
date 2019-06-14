@@ -1,12 +1,12 @@
 # D3pixelbot
 
-This is a custom client, bot, recorder, timelapse creator and more for pixelcanvas.io and similar online games.
+This is a custom client, bot, recorder, timelapse creator and more for PixelCanvas.io and similar online games.
 In contrast to similar projects this client is made to be configurable and usable without any hassles.
 Programming experience isn't necessary, and there is no need to install runtimes for any scripting language.
 
 ## Current state
 
-As the previous version stopped working when pixelcanvas.io moved to https, i decided to rewrite the complete project in go.
+As the previous version stopped working when PixelCanvas.io moved to https, i decided to rewrite the complete project in go.
 This means the program has less functions that before, at least until they are implemented.
 On the other hand, rewriting it in go opens up a lot of possibilities.
 
@@ -32,7 +32,7 @@ Here is a list of implemented features or soon to be implemented things/ideas:
 
 ## Supported games
 
-- pixelcanvas.io
+- PixelCanvas.io
 
 <!--## Extending the bot
 
@@ -46,10 +46,7 @@ More on that later, the core and the basic functions need to work first.
 
 ### Installation
 
-Prebuilt binaries will be provided on GitHub later, for now you need to build it yourself.
-
-<!--1. [Download](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/releases)-->
-1. Build the program
+1. [Download](https://github.com/Dadido3/D3pixelbot/releases)
 2. Put it in some folder
 3. Start the `D3pixelbot.exe` or similar
 4. Do stuff

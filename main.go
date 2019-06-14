@@ -32,6 +32,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/coreos/go-semver/semver"
 	colorable "github.com/mattn/go-colorable"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -39,12 +40,18 @@ import (
 
 var log = logrus.New()
 var wd string // Initial working directory (Executable directory)
+var version *semver.Version
 
 func init() {
 	var err error
 	wd, err = os.Getwd()
 	if err != nil {
 		log.Fatalf("Can't get working directory")
+	}
+
+	version, err = semver.NewVersion("0.1.0")
+	if err != nil {
+		fmt.Println(err.Error())
 	}
 
 	runtime.LockOSThread() // Locks the whole program to the main thread (Except newly spawned goroutines). That's needed for the UI to work properly.
@@ -77,7 +84,7 @@ func main() {
 		log.Errorf("Can't load config file: %v", err)
 	}
 
-	log.Info("D3pixelbot started")
+	log.Infof("D3pixelbot %v started", version)
 
 	/*pFile, err := os.Create("cpu.pprof")
 	if err != nil {

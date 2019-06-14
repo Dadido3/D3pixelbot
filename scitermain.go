@@ -122,6 +122,15 @@ func sciterOpenMain() {
 		return nil
 	})
 
+	w.DefineFunction("version", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) != 0 {
+			log.Errorf("Wrong number of parameters")
+			return sciter.NewValue("Wrong number of parameters")
+		}
+
+		return sciter.NewValue(version.String())
+	})
+
 	path, err := filepath.Abs("ui/main.htm")
 	if err != nil {
 		log.Fatal(err)

@@ -38,6 +38,7 @@
         "runtimes",
         "sciter",
         "seekable",
+        "semver",
         "tevino",
         "timelapses",
         "unregister"

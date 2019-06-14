@@ -63,6 +63,12 @@
 				var res = view.replayLocal(values.game);
 				debug : res;
 			});
+
+			function self.ready() {
+				for (var elem in $$(.version-string)) {
+					elem.text = view.version();
+				}
+			}
 		</script>
 	</head>
 	
@@ -122,16 +128,16 @@
 				</div>
 			</section>
 			<section(fourth)>
-				<h1>D3pixelbot</h1>
+				<h1>D3pixelbot <span.version-string></span></h1>
 				<p>
-					This is a custom client, bot and recorder for Pixelcanvas.io and similar online games.
+					This is a custom client, bot and recorder for PixelCanvas.io and similar online games.
 					In contrast to similar projects this client is made to be configurable and usable without any hassles.
 					Programming experience isn't necessary, and there is no need to install runtimes for any scripting language.
 				</p>
 				<ul>
 					<li>Programmer: David Vogel (Dadido3, Xaardas)</li>
 					<li>Website: <a href="http://D3nexus.de">D3nexus.de</a></li>
-					<li>Repository: <a href="https://github.com/Dadido3/Pixelcanvas.io-Custom-Client">github.com/Dadido3/Pixelcanvas.io-Custom-Client</a></li>
+					<li>Repository: <a href="https://github.com/Dadido3/D3pixelbot">github.com/Dadido3/D3pixelbot</a></li>
 				</ul>
 				<p>This Application (or Component) uses Sciter Engine (<a href="http://sciter.com">http://sciter.com/</a>), copyright Terra Informatica Software, Inc.</p>
 
