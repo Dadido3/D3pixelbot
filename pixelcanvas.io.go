@@ -122,7 +122,7 @@ func newPixelcanvasio() (connection, *canvas) {
 			response := &struct {
 				Online int `json:"online"`
 			}{}
-			if err := getJSON("https://pixelcanvas.io/api/online", response); err == nil {
+			if err := getJSON("https://europe-west1-pixelcanvasv2.cloudfunctions.net/online", response); err == nil {
 				atomic.StoreUint32(&con.OnlinePlayers, uint32(response.Online))
 				log.Debugf("Player amount: %v", response.Online)
 			}
@@ -173,7 +173,7 @@ func newPixelcanvasio() (connection, *canvas) {
 			startTime := time.Now()
 			log.Tracef("Download at %v started", cc)
 
-			r, err := myClient.Get(fmt.Sprintf("https://pixelcanvas.io/api/bigchunk/%v.%v.bmp", cc.X, cc.Y))
+			r, err := myClient.Get(fmt.Sprintf("https://europe-west1-pixelcanvasv2.cloudfunctions.net/bigchunk/%v.%v.bmp", cc.X, cc.Y))
 			if err != nil {
 				log.Errorf("Can't get bigchunk at %v: %v", cc, err)
 				return
@@ -252,10 +252,9 @@ func newPixelcanvasio() (connection, *canvas) {
 			// Any following connection attempt should be delayed a few seconds
 			waitTime = 5 * time.Second
 
-			// Get websocket URL
-			u, err := con.getWebsocketURL()
+			u, err := url.Parse("wss://ws.pixelcanvas.io:8443")
 			if err != nil {
-				log.Errorf("Failed to connect to websocket server: %v", err)
+				log.Errorf("Invalid websocket URL: %v", err)
 				continue
 			}
 
@@ -364,22 +363,6 @@ func (con *connectionPixelcanvasio) getOnlinePlayers() int {
 	return int(atomic.LoadUint32(&con.OnlinePlayers))
 }
 
-func (con *connectionPixelcanvasio) getWebsocketURL() (u *url.URL, err error) {
-	response := &struct {
-		URL string `json:"url"`
-	}{}
-	if err := getJSON("https://pixelcanvas.io/api/ws", response); err != nil {
-		return nil, fmt.Errorf("Couldn't retrieve websocket URL: %v", err)
-	}
-
-	u, err = url.Parse(response.URL)
-	if err != nil {
-		return nil, fmt.Errorf("Retrieved invalid websocket URL: %v", err)
-	}
-
-	return u, nil
-}
-
 func (con *connectionPixelcanvasio) authenticateMe() error {
 	// TODO: Make threadsafe
 	request := struct {
@@ -388,7 +371,7 @@ func (con *connectionPixelcanvasio) authenticateMe() error {
 		Fingerprint: con.Fingerprint,
 	}
 
-	statusCode, _, body, err := postJSON("https://pixelcanvas.io/api/me", "https://pixelcanvas.io/", request)
+	statusCode, _, body, err := postJSON("https://europe-west1-pixelcanvasv2.cloudfunctions.net/me", "https://pixelcanvas.io/", request)
 	if err != nil {
 		return err
 	}

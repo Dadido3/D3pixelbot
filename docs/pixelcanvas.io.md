@@ -29,7 +29,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 ## HTTPS Post methods
 
 - Draw pixel:
-  - URL: `https://pixelcanvas.io/api/pixel`
+  - URL: `https://europe-west1-pixelcanvasv2.cloudfunctions.net/pixel`
 
   - Body: JSON Object:
 
@@ -60,7 +60,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
       | `You must wait` | Wait you must <(-_-)> |
 
 - Me authentication
-  - URL: `https://pixelcanvas.io/api/me`
+  - URL: `https://europe-west1-pixelcanvasv2.cloudfunctions.net/me`
 
   - Body: JSON Object:
 
@@ -89,9 +89,9 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 
 - Download chunk collection (15x15 chunks):
 
-  - URL: `https://pixelcanvas.io/api/bigchunk/ccx.ccy.bmp`  
+  - URL: `https://europe-west1-pixelcanvasv2.cloudfunctions.net/bigchunk/ccx.ccy.bmp`  
     With `ccx` and `ccy` being the offset of the chunk collection.  
-    Example: `https://pixelcanvas.io/api/bigchunk/-10.5.bmp`  
+    Example: `https://europe-west1-pixelcanvasv2.cloudfunctions.net/bigchunk/-10.5.bmp`  
     Make sure to disable any caching for this request.
 
   - Result: Raw image data, 4 bit per pixel:
@@ -138,7 +138,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 
 - Get online player number:
 
-  - URL: `https://pixelcanvas.io/api/online`
+  - URL: `https://europe-west1-pixelcanvasv2.cloudfunctions.net/online`
 
   - Result:JSON Object:
 
@@ -146,22 +146,11 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
     | --- | ---- | ----------- | ------- |
     | online            | int
 
-- Get websocket URL:
-
-  - URL: `https://pixelcanvas.io/api/ws`
-
-  - Result:JSON Object:
-
-    | Key | Type | Description | Example |
-    | --- | ---- | ----------- | ------- |
-    | url            | string
-
 ## Websocket protocol
 
 ### Connect to server
 
-1. Make "Get websocket URL" HTTPS request
-2. Connect to WS server: `URL + "/?fingerprint=" + fingerprint`  
+1. Connect to WS server: `wss://ws.pixelcanvas.io:8443 + "/?fingerprint=" + fingerprint`  
    The fingerprint doesn't need to be same as sent in the me request. But it needs to be a valid hexadecimal, 32 nibbles long.
 
 The connection will be terminated by the server after half an hour, to get rid of old connections.
