@@ -19,6 +19,8 @@
 // TODO: Add manifest for DPI awareness: https://github.com/c-smile/sciter-sdk/blob/master/demos/usciter/win-res/dpi-aware.manifest
 // TODO: Add way to gracefully stop everything when main window closes, or when the console closes.
 // TODO: Refactor most variable names when gorename works with modules
+// TODO: Add headless mode, and service
+// TODO: Fix bug where chunks don't download
 
 package main
 
@@ -46,7 +48,7 @@ func init() {
 	}
 
 	runtime.LockOSThread() // Locks the whole program to the main thread (Except newly spawned goroutines). That's needed for the UI to work properly.
-	// TODO: Only lock when UI is needed (If headless mode is configured), or use lib to call sciterOpenMain() from main thread.
+	// TODO: Only lock when UI is needed (If headless mode is not configured), or use lib to call sciterOpenMain() from main thread.
 }
 
 func main() {

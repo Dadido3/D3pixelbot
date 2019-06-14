@@ -147,7 +147,7 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 						handleChunk(chunk, true)
 					}
 				}
-			case <-ticker.C: // Query all chunks for state changes every minute
+			case <-ticker.C: // Query all chunks for state changes regularly
 				chunks := can.getAllChunks()
 				for _, chunk := range chunks {
 					handleChunk(chunk, false) // Handle chunks, but don't reset their timer

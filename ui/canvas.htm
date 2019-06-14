@@ -72,6 +72,10 @@
 				horizontal-align: left;
 			}
 
+			.hidden, .hidden * {
+				visibility: collapse;
+			}
+
 			pixcanvas {
 				background-color: rgba(0, 0, 0, 0.25);
 				width: *;
@@ -200,6 +204,11 @@
 				return true;
 			});
 
+			pc.mouseCallback = function(x, y) {
+				$(#canvas-settings > output(MouseX)).value = x;
+				$(#canvas-settings > output(MouseY)).value = y;
+			};
+
 			function self.ready() {
 				//view.connectToInspector();
 				
@@ -210,6 +219,10 @@
 						Date: t,
 						Time: t
 					};
+				} else {
+					for (var elem in $$(.replay-hide)) {
+						elem.attributes.toggleClass("hidden", true);
+					}
 				}
 			}
 
@@ -223,20 +236,20 @@
 	<body>
 
 		<div#sidebar>
-			<span>Replay</span>
-			<form.table#replay-current-time>
-				<label>Canvas Date: </label>
+			<span.replay-hide>Replay</span>
+			<form.table.replay-hide#replay-current-time>
+				<label>Canvas Date:</label>
 				<output|date-local(Date)/>
 				<label>Canvas Time:</label>
 				<output|time-local(Time)/>
 			</form>
-			<form.table#replay-time>
-				<label>Start Date: </label>
+			<form.table.replay-hide#replay-time>
+				<label>Start Date:</label>
 				<input|date(Date)/>
 				<label>Start Time:</label>
 				<input|time(Time)/>
 			</form>
-			<form.table#replay-settings>
+			<form.table.replay-hide#replay-settings>
 				<label>Autoplay:</label>
 				<button|toggler(Autoplay) checked=false>
 					<caption .false>Pause</caption>
@@ -247,7 +260,7 @@
 				<label>Limit:</label>
 				<input|integer(Limit) min=1 max=1000000 step=1 value=100/>
 			</form>
-			<span>Output</span>
+			<span>Image output</span>
 			<form.table#output>
 				<label>Canvas:</label>
 				<div.table(Rect)>
@@ -262,23 +275,22 @@
 				<input|path(Filename) value="./recordings/output_%count%.png"/>
 				<label>Counter:</label>
 				<input|integer(Counter) min=0 max=1000000 step=1 value=0/>
-				<label>Save:</label>
-				<button|toggler(Autosave) checked=false>
+				<label.replay-hide>Autosave:</label>
+				<button|toggler.replay-hide(Autosave) checked=false>
 					<caption .false>Manually</caption>
 					<caption .true>Automatic</caption>
 				</button>
 				<label>Save:</label>
 				<button#btn-save-image>Save now</button>
-      </button>
 			</form>
 			<span>Canvas</span>
-			<form.table#data>
-				<label>Players: </label>
+			<form.table#canvas-settings>
+				<label>Players:</label>
 				<output|integer(playerCount)/>
-				<label>MouseX: </label>
-				<output|integer(mouseX)/>
-				<label>MouseY: </label>
-				<output|integer(mouseY)/>
+				<label>MouseX:</label>
+				<output|integer(MouseX)/>
+				<label>MouseY:</label>
+				<output|integer(MouseY)/>
 				<label>Zoom:</label>
 				<input|hslider #zoom min=0 max=4 value=2 />
 			</form>

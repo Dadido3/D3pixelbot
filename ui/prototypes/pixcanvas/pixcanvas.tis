@@ -31,6 +31,10 @@ class PixCanvas : Behavior {
 				this.scrollingY = evt.y;
 				this.sendRects(null);
 			}
+
+			if (this.mouseCallback) {
+				this.mouseCallback(Math.floor((this.scroll(#left) + evt.x)/this.zoom) - this.canvasCenterX,Math.floor((this.scroll(#top) + evt.y)/this.zoom) - this.canvasCenterY);
+			}
 		});
 
 		this.sendRects = function(dummy) { 
