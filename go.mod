@@ -1,4 +1,4 @@
-module github.com/Dadido3/Pixelcanvas.io-Custom-Client/tree/modular
+module github.com/Dadido3/D3pixelbot
 
 require (
 	github.com/gorilla/websocket v1.4.0

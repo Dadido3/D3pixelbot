@@ -1,56 +1,102 @@
-# Modular development branch
+# D3pixelbot
 
-This branch is trying to make the client modular by rewriting all the networking in go, and using the PureBasic application purely as frontend.
-This has the following advantages:
-
-- It will work headless.
-- It can have support for captcha solving or tracking.
-- It can retrieve things like fingerprints automatically.
-- It can have built in proxy and VPN support. (That's a thing for later)
-- It can support several similar websites/games. (Depending if someone writes a module for those games)
-- It will be possible to run multiple instances at once.
-- The PureBasic application will now serve as a central controller of all instances.
-- Important parts can be compiled by anyone with a freely available compiler.
-
-All the 'can' things depend on if and how they are implemented.
-I'm not sure yet if the main logic (Checking, queueing and placing pixels) will be inside each 'client' instance, or if all clients depend on a central application somewhere.
-
-# Pixelcanvas.io Custom Client
-
-This is a custom client / bot for Pixelcanvas.io.
+This is a custom client, bot, recorder, timelapse creator and more for pixelcanvas.io and similar online games.
 In contrast to similar projects this client is made to be configurable and usable without any hassles.
-Programming experience isn't necessary.
-To create a job/template you just have to click "create" and change some settings (Image (PNG) path, position, placing strategy, ...) over the user interface.
+Programming experience isn't necessary, and there is no need to install runtimes for any scripting language.
 
-As this project is just for the fun, some of the things that are considered possible future features may never be implemented.
-These include:
+## Current state
 
-- Captcha requester (Or even an interface to external captcha solving services)
-- Managing of multiple users (Proxies, VPNs or possibly lightweight clients which connect to a "mother client")
-- Manual pixel placement (But queued)
-- Better queue reorder algorithms which are more human like
-- Timelapse creator: It would be possible (And that was one of the other ideas i started that project with) to store every pixel change, and additionally store key frames of a big part of the canvas every few hours.
-(These keyframes could easily be 10000x10000 pixels in size)
-Afterwards the data could be used to create timelapses of nearly any part of the canvas at any given time interval.
+As the previous version stopped working when pixelcanvas.io moved to https, i decided to rewrite the complete project in go.
+This means the program has less functions that before, at least until they are implemented.
+On the other hand, rewriting it in go opens up a lot of possibilities.
 
-## Usage
+Here is a list of implemented features or soon to be implemented things/ideas:
 
-1. [Download](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/releases)
-2. Start the client.
-3. Click "Fingerprint" and enter your pixelcanvas.io fingerprint.
-4. Add your templates into the "Templates" view. Activate templates by checking their checkbox. (If you haven't done that already)
-5. Let the client do the work until a message requester with the title "Captcha" pops up. You then have to use the pixelcanvas.io website and place a pixel which causes a recaptcha to appear. Solve the captcha(s), click "OK" on the requester, and the bot will work for another hour.
+- [x] UI to control everything
+- [ ] Nice looking UI to control everything
+- [x] Reconnects, downloads and re-downloads automatically and as needed
+- [x] View canvas as you can on the game's website
+- [x] Record canvas events (Relatively compact: ~10-20 MB/day, can be reduced further later)
+- [x] Play back recordings (Freely seekable)
+- [x] Export image sequence from recordings (Subset of the recorded canvas, timelapses, ...)
+- [x] Multitasking. You can run many game instances/tasks from a single application
+- [x] Works on Windows, Linux and macOS (Latter two not tested yet)
+- [ ] Place pixels manually
+- [ ] Place pixels automatically, with given templates and strategies
+- [ ] Remote connect and control
+- [ ] Forward captcha requests to user (Solvable in the user interface, also with remote controlling)
+- [ ] Option to run headless / As service
+- [ ] No need for the user to retrieve fingerprints or anything from a browser
+- [ ] Support for proxies and VPNs (Later, low priority)
+- [ ] Support more games (It's relatively easy to implement new games)
 
-## Known problems (Which also may never be fixed)
+## Supported games
 
-- If you zoom out and press "Load Viewport" the client may hit the process handle limit, as this will create a lot of small images.
-  This could be fixed by caching or using bigger image chunks.
-  (But meh, just don't let it load 10000 images ;) )
-- Most network communication is blocking (Except chunk downloading). But that shouldn't cause any troubles.
-- Estimations and pixel rates are wrong after starting the client, but they will show correct values after 30 placed pixels.
-- There is probably more small stuff, but the client does its job.
+- pixelcanvas.io
+
+<!--## Extending the bot
+
+All in all the new bot is easily extendable.
+The design abstracts all the differences between similar games away, so there is no need adapt or rewrite modules when new stuff is added.
+
+More on that later, the core and the basic functions need to work first.
+-->
+
+## How to use
+
+### Installation
+
+Prebuilt binaries will be provided on GitHub later, for now you need to build it yourself.
+
+<!--1. [Download](https://github.com/Dadido3/Pixelcanvas.io-Custom-Client/releases)-->
+1. Build the program
+2. Put it in some folder
+3. Start the `D3pixelbot.exe` or similar
+4. Do stuff
+
+### Record the canvas
+
+1. Open the `Local` tab, select game to record and click `Record`
+2. Recording starts as soon as the window opens
+
+In the recording window you can define the rectangles that should be recorded.
+As the canvas is shared between instances of a single game, areas you explore are also recorded.
+
+### Playback a recording
+
+1. Open the `Replay` tab, select game you want to replay and click `Replay`
+2. Enter time and date you want to seek to
+3. Set interval in seconds
+4. Click `Autoplay` to let it automatically forward the time in the given interval
+
+You can go forward and backward in time as you wish.
+
+If a chunk is slightly red and reads `Invalid`, it means that there is not data for that chunk at the given point in time.
+
+### Export recording as image sequence
+
+1. Have some recording open, see above
+2. Enter upper left (Min) and lower right (Max) coordinates of a rectangle in canvas coordinates
+3. Enter size in image pixels
+4. Set filename
+5. Press `Save` to save a single image, or
+6. Use Autosave to save images in the given interval while the canvas is playing back with `Autoplay`
+
+## How to build
+
+### Windows
+
+1. Make sure you have go installed
+2. Make sure to have [Sciter](https://sciter.com/download/) installed
+3. Install `gcc` to make cgo work. Preferably use MinGW64. GCC needs to be in your `%PATH%`
+4. Run `go build`
 
 ## Screenshots
 
-A client running for a month:
-![<Image missing>](/screens/V0.946.png)
+### New version
+
+![Screenshot of the program](screens/2019-06-14.png)
+
+### The previous client running for a month
+
+![Screenshot of the program](screens/V0.946.png)

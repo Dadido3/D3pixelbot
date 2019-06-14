@@ -1,6 +1,7 @@
 {
     "go.formatTool": "goimports",
     "cSpell.words": [
+        "Autoplay",
         "Autosave",
         "BGRA",
         "Debugf",
@@ -21,6 +22,7 @@
         "bleh",
         "captcha",
         "captchas",
+        "chromedp",
         "coord",
         "fingerprintjs",
         "keyframes",
@@ -35,6 +37,7 @@
         "rect",
         "runtimes",
         "sciter",
+        "seekable",
         "tevino",
         "timelapses",
         "unregister"
