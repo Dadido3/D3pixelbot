@@ -33,7 +33,7 @@ type connectionReplay interface {
 	connection
 
 	setReplayTime(t time.Time) error
-	getRecordStartTime() time.Time
+	getRecordings() []canvasDiskReaderRecording
 }
 
 type connectionType struct {

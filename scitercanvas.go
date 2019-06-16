@@ -242,8 +242,12 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			return
 		}
 
+		recs := conRep.getRecordings()
+
 		val.Set("HasReplayTime", sciter.NewValue(true))
-		val.Set("StartTime", conRep.getRecordStartTime().Format(time.RFC3339Nano))
+		if len(recs) >= 1 {
+			val.Set("StartTime", recs[0].StartTime.Format(time.RFC3339Nano))
+		}
 
 		return val
 	})

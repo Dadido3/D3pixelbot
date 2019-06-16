@@ -76,7 +76,7 @@ func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, err
 	cdw.ZipWriter.Comment = "D3's custom pixel game client recording"
 
 	err = binary.Write(cdw.ZipWriter, binary.LittleEndian, struct {
-		MagicNumber             uint32
+		MagicNumber             [4]byte
 		Version                 uint16 // File format version
 		Time                    int64
 		ChunkWidth, ChunkHeight uint32
@@ -88,7 +88,7 @@ func (can *canvas) newCanvasDiskWriter(shortName string) (*canvasDiskWriter, err
 		_                       uint32 // Reserved
 		_                       uint32 // Reserved
 	}{
-		MagicNumber: 1128616528, // ASCII "PREC" in little endian
+		MagicNumber: [4]byte{'P', 'R', 'E', 'C'},
 		Version:     1,
 		Time:        time.Now().UnixNano(),
 		ChunkWidth:  uint32(can.ChunkSize.X),
