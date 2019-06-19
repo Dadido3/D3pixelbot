@@ -27,6 +27,34 @@ import (
 	"time"
 )
 
+type sciterTime struct {
+	LowDateTime  uint32
+	HighDateTime uint32
+}
+
+// Nanoseconds returns sciterTime ft in nanoseconds. The file format sciter uses in its API
+// since Epoch (00:00:00 UTC, January 1, 1970).
+func (ft *sciterTime) Nanoseconds() int64 {
+	// 100-nanosecond intervals since January 1, 1601
+	nsec := int64(ft.HighDateTime)<<32 + int64(ft.LowDateTime)
+	// change starting time to the Epoch (00:00:00 UTC, January 1, 1970)
+	nsec -= 116444736000000000
+	// convert into nanoseconds
+	nsec *= 100
+	return nsec
+}
+
+func NsecToFiletime(nsec int64) (ft sciterTime) {
+	// convert into 100-nanosecond
+	nsec /= 100
+	// change starting time to January 1, 1601
+	nsec += 116444736000000000
+	// split into high / low
+	ft.LowDateTime = uint32(nsec & 0xffffffff)
+	ft.HighDateTime = uint32(nsec >> 32 & 0xffffffff)
+	return ft
+}
+
 var myClient = &http.Client{Timeout: 10 * time.Second}
 
 func getJSON(url string, target interface{}) error {

@@ -1,0 +1,18 @@
+timeslider {
+	prototype: TimeSlider url(timeslider.tis);
+	display: block;
+
+	height: 100dip;
+
+	overflow: scroll-indicator;
+}
+
+timeslider .scrollContainer {
+	position: relative;
+	height: 100dip;
+	background-color: red;
+}
+
+timeslider .timeContainer {
+	position: absolute;
+}

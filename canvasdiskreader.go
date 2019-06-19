@@ -83,11 +83,11 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 		curTime := <-cdr.TimeChan
 
 		for {
-			// Get recording file that is inside the range
+			// Get recording file where current time is inside its time interval
 			var rec canvasDiskReaderRecording
 			found := false
 			for _, recording := range cdr.Recordings {
-				if (curTime.After(recording.StartTime) || curTime.Equal(recording.StartTime)) && curTime.Before(recording.EndTime) {
+				if !curTime.Before(recording.StartTime) && curTime.Before(recording.EndTime) {
 					rec = recording
 					found = true
 					break

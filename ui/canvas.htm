@@ -6,13 +6,15 @@
 			//@import url("styles/flat-theme.css");
 			@import url("styles/toggler.css");
 			@import url("prototypes/pixcanvas/pixcanvas.css");
+			@import url("prototypes/timeslider/timeslider.css");
 
             html {
 				background: rgba(0, 0, 0, 0);
 			}
 			
 			body {
-				flow:	"1 2";
+				flow:	"1 2"
+						"3 3";
 				font:system;
 				margin: 0;
 			}
@@ -31,7 +33,7 @@
 				font: system;
 				flow: horizontal;
 				border: 1dip solid threedshadow;
-				background:  window;
+				background: window;
 				height: 1.8em;
 			}
 
@@ -81,7 +83,12 @@
 				width: *;
 				height: *;
 			}
-			
+
+			timeslider {
+				visibility: collapse; // Hide until it's usable
+				height: 0;
+			}
+
 		</style>
 		<script type="text/tiscript">
 			var pc = $(pixcanvas);
@@ -114,8 +121,12 @@
 			}
 
 			$(#zoom).on("change", function() {
-				pc.setZoom(this.value-2);
+				pc.setZoom(this.value-8);
 			});
+
+			pc.zoomCallback = function(zoomLevel) {
+				$(#zoom).value = zoomLevel+8;
+			};
 
 			$(#replay-time > input(Date)).on("change", function() { // TODO: Create single gadget for date and time
 				var formValues = $(#replay-time).value;
@@ -292,7 +303,7 @@
 				<label>MouseY:</label>
 				<output|integer(MouseY)/>
 				<label>Zoom:</label>
-				<input|hslider #zoom min=0 max=4 value=2 />
+				<input|hslider #zoom min=0 max=24 value=8 />
 			</form>
 		</div>
 		
@@ -303,6 +314,13 @@
 				</div>
 			</div>
 		</pixcanvas>
+
+		<timeslider>
+			<div.scrollContainer>
+				<div.timeContainer>
+				</div>
+			</div>
+		</timeslider>
 		
 	</body>
 	

@@ -1,0 +1,67 @@
+class TimeSlider : Behavior {
+	function attached() {
+		this.canvasWidth = 1000; // In seconds
+		this.destinationTime = Date.now();
+		this.zoom = 1.0; // dip / second
+		this.zoomLevel = 0;
+
+		this.on("mousedown", function(evt) {
+			if (evt.buttons == 0x04) { // Middle mouse button
+				this.scrolling = true;
+				this.scrollingX = evt.x;
+				this.scrollingY = evt.y;
+				this.capture(#strict);
+			}
+		});
+
+		this.on("mouseup", function(evt) {
+			if (evt.buttons == 0x04) { // Middle mouse button
+				this.scrolling = false;
+				this.capture(false);
+			}
+		});
+
+		this.on("mousemove", function(evt) {
+			if (this.scrolling) {
+				var (dx, dy) = (evt.x - this.scrollingX, evt.y - this.scrollingY);
+				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy, false, false);
+				this.scrollingX = evt.x;
+				//this.scrollingY = evt.y;
+			}
+		});
+
+		this.on("mousewheel", function(evt) {
+			this.zoomLevel += evt.wheelDelta;
+			if (zoomLevel > 10) zoomLevel = 10;
+
+			this.setZoom(this.zoomLevel);
+		});
+
+		this.$(.scrollContainer).style.set({
+			width: this.canvasWidth * this.zoom
+		});
+
+		this.setZoom(0);
+	}
+
+	function detached() {
+		
+	}
+
+	function setZoom(zoomLevel) {
+		var left = (this.scroll(#left) + this.scroll(#width) / 2) / this.zoom;
+		var top = (this.scroll(#top) + this.scroll(#height) / 2) / this.zoom;
+
+		this.zoom = Math.pow(Math.pow(2, 1/10.0), zoomLevel);
+
+		this.$(.scrollContainer).style.set { // TODO: Use zoom property
+			width: this.canvasWidth * this.zoom
+		};
+
+		this.$(.scrollContainer>div).style.set({
+			transform: [scale: this.zoom],
+		});
+
+		this.scrollTo((left * this.zoom - this.scroll(#width) / 2).toInteger(), this.scroll(#top), false, false);
+	}
+}

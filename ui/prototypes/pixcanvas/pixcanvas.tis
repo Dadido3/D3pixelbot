@@ -5,6 +5,7 @@ class PixCanvas : Behavior {
 		this.canvasCenterX = 0; // Offset to the center coordinate, as the container element can't be moved
 		this.canvasCenterY = 0;
 		this.zoom = 1.0;
+		this.zoomLevel = 0;
 		this.virtualChunks = {};
 
 		this.on("mousedown", function(evt) {
@@ -36,6 +37,16 @@ class PixCanvas : Behavior {
 				this.mouseCallback(Math.floor((this.scroll(#left) + evt.x)/this.zoom) - this.canvasCenterX,Math.floor((this.scroll(#top) + evt.y)/this.zoom) - this.canvasCenterY);
 			}
 		});
+
+		/*this.on("~mousewheel", function(evt) {
+			debug : evt.wheelDelta;
+			this.setZoom(this.zoomLevel + evt.wheelDelta);
+			return true;
+		});
+
+		this.onMouse = function(evt) {
+			//debug : evt.type;
+		}*/
 
 		this.sendRects = function(dummy) { 
 			var left = this.scroll(#left)/this.zoom - this.canvasCenterX;
@@ -85,9 +96,13 @@ class PixCanvas : Behavior {
 		var left = (this.scroll(#left) + this.scroll(#width) / 2) / this.zoom;
 		var top = (this.scroll(#top) + this.scroll(#height) / 2) / this.zoom;
 
-		this.zoom = Math.pow(2, zoomLevel);
+		if (zoomLevel > 16) zoomLevel = 16;
+		if (zoomLevel < -8) zoomLevel = -8;
 
-		this.$(.canvasContainer).style.set {
+		this.zoomLevel = zoomLevel;
+		this.zoom = Math.pow(Math.pow(2, 1.0/4), zoomLevel);
+
+		this.$(.canvasContainer).style.set { // TODO: Use zoom property
 			width: this.canvasWidth * this.zoom,
 			height: this.canvasHeight * this.zoom
 		};
@@ -97,6 +112,10 @@ class PixCanvas : Behavior {
 		});
 
 		this.scrollTo((left * this.zoom - this.scroll(#width) / 2).toInteger(), (top * this.zoom - this.scroll(#height) / 2).toInteger(), false, true);
+
+		if (this.zoomCallback) {
+			this.zoomCallback(this.zoomLevel);
+		}
 
 		this.sendRects(null);
 	}

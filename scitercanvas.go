@@ -26,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/nfnt/resize"
@@ -209,7 +208,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			return sciter.NewValue(fmt.Sprintf("Can't set replay time on %T", con))
 		}
 
-		ft := &syscall.Filetime{
+		ft := &sciterTime{
 			LowDateTime:  uint32(jsonRect.Int64()),
 			HighDateTime: uint32(jsonRect.Int64() >> 32),
 		}
