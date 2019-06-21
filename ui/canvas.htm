@@ -76,6 +76,7 @@
 
 			.hidden, .hidden * {
 				visibility: collapse;
+				height: 0;
 			}
 
 			pixcanvas {
@@ -83,12 +84,7 @@
 				width: *;
 				height: *;
 			}
-
-			timeslider {
-				visibility: collapse; // Hide until it's usable
-				height: 0;
-			}
-
+			
 		</style>
 		<script type="text/tiscript">
 			var pc = $(pixcanvas);
@@ -224,11 +220,16 @@
 				//view.connectToInspector();
 				
 				var result = view.hasReplayTime();
-				if (result.HasReplayTime) {
-					var t = new Date(result.StartTime);
+				if (result.Recs && result.Recs.length > 0) {
+					for (var (k, v) in result.Recs) {
+						v.StartTime = new Date(v.StartTime);
+						v.EndTime = new Date(v.EndTime);
+						result.Recs[k] = v;
+					}
+					$(timeslider).recordings = result.Recs;
 					$(#replay-time).value = {
-						Date: t,
-						Time: t
+						Date: result.Recs[0].StartTime,
+						Time: result.Recs[0].StartTime
 					};
 				} else {
 					for (var elem in $$(.replay-hide)) {
@@ -315,7 +316,7 @@
 			</div>
 		</pixcanvas>
 
-		<timeslider>
+		<timeslider.replay-hide>
 			<div.scrollContainer>
 				<div.timeContainer>
 				</div>

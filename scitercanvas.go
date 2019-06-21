@@ -244,9 +244,15 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		recs := conRep.getRecordings()
 
 		val.Set("HasReplayTime", sciter.NewValue(true))
-		if len(recs) >= 1 {
-			val.Set("StartTime", recs[0].StartTime.Format(time.RFC3339Nano))
+		sciterRecs := sciter.NewValue()
+		for i, rec := range recs {
+			sciterRec := sciter.NewValue()
+			sciterRec.Set("StartTime", rec.StartTime.Format(time.RFC3339Nano))
+			sciterRec.Set("EndTime", rec.EndTime.Format(time.RFC3339Nano))
+			sciterRec.Set("FileName", rec.FileName)
+			sciterRecs.SetIndex(i, sciterRec)
 		}
+		val.Set("Recs", sciterRecs)
 
 		return val
 	})

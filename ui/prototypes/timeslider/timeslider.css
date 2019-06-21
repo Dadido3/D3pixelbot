@@ -10,9 +10,15 @@ timeslider {
 timeslider .scrollContainer {
 	position: relative;
 	height: 100dip;
-	background-color: red;
 }
 
 timeslider .timeContainer {
 	position: absolute;
+}
+
+timeslider .timeContainer > div {
+	position: absolute;
+	height: 60dip;
+	top: 20dip;
+	background-color: rgba(255, 0, 0, 0.25);
 }

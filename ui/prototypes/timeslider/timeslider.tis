@@ -1,9 +1,11 @@
 class TimeSlider : Behavior {
 	function attached() {
-		this.canvasWidth = 1000; // In seconds
-		this.destinationTime = Date.now();
+		this.canvasWidth = 1000; // Range in seconds
+		this.currentTime = Date.now();
+		this.startTime = Date.now(); // Time of the left side of the range
 		this.zoom = 1.0; // dip / second
 		this.zoomLevel = 0;
+		this._recordings = {};
 
 		this.on("mousedown", function(evt) {
 			if (evt.buttons == 0x04) { // Middle mouse button
@@ -26,20 +28,60 @@ class TimeSlider : Behavior {
 				var (dx, dy) = (evt.x - this.scrollingX, evt.y - this.scrollingY);
 				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy, false, false);
 				this.scrollingX = evt.x;
-				//this.scrollingY = evt.y;
+				this.scrollingY = evt.y;
 			}
 		});
 
 		this.on("mousewheel", function(evt) {
-			this.zoomLevel += evt.wheelDelta;
-			if (zoomLevel > 10) zoomLevel = 10;
-
-			this.setZoom(this.zoomLevel);
+			this.setZoom(this.zoomLevel + evt.wheelDelta);
 		});
 
-		this.$(.scrollContainer).style.set({
-			width: this.canvasWidth * this.zoom
-		});
+		// Draw ticks
+		this.paintBackground = function(gfx) {
+			var left = this.scroll(#left);
+			var (x,y,w,h) = this.box(#rectw);
+
+			var pixelZoom = this.zoom;//this.toPixels(dip(this.zoom)); // TODO: Make compatible with high DPI outputs
+
+			gfx.save();
+			//gfx.pushLayer(#background-area);
+
+			gfx.translate(0.5, 0);
+
+			var tickSize = 60 * Math.pow(2, Math.log2(1/pixelZoom).toInteger()); // in seconds
+			var ticks = w / pixelZoom / tickSize;
+			var startTick = (left / pixelZoom / tickSize).toInteger();
+			gfx.strokeColor(color(0, 0, 0));
+			gfx.strokeWidth(1);
+			for (var i = startTick; i <= startTick + ticks; i++) {
+				var sx = i * pixelZoom * tickSize - left;
+				gfx.line(sx, 0, sx, h);
+			}
+
+			//gfx.popLayer();
+			gfx.restore();
+		}
+
+		// Draw other stuff
+		this.$(.timeContainer).paintBackground = function(gfx) {
+			/*var ts = this.parent.parent;
+			var left = ts.scroll(#left);
+			var (x,y,w,h) = this.box(#rectw);
+
+			gfx.save();
+			//gfx.pushLayer(#background-area);
+
+			var ticks = w / ts.toPixels(dip(ts.zoom));
+			var startTick = left / ts.toPixels(dip(ts.zoom));
+			for (var i =  in this.$(.chunkContainer)) {
+			}
+
+			gfx.fillColor(color(255,255,0));
+			gfx.star(100dip, 100dip, 150dip, 70dip, 0.0, 5);
+
+			//gfx.popLayer();
+			gfx.restore();*/
+		}
 
 		this.setZoom(0);
 	}
@@ -52,16 +94,52 @@ class TimeSlider : Behavior {
 		var left = (this.scroll(#left) + this.scroll(#width) / 2) / this.zoom;
 		var top = (this.scroll(#top) + this.scroll(#height) / 2) / this.zoom;
 
-		this.zoom = Math.pow(Math.pow(2, 1/10.0), zoomLevel);
+		if (zoomLevel > 5) zoomLevel = 5;
+		if (zoomLevel < -60) zoomLevel = -60;
+
+		this.zoomLevel = zoomLevel;
+		this.zoom = Math.pow(Math.pow(2, 1/5.0), zoomLevel);
 
 		this.$(.scrollContainer).style.set { // TODO: Use zoom property
 			width: this.canvasWidth * this.zoom
 		};
 
-		this.$(.scrollContainer>div).style.set({
-			transform: [scale: this.zoom],
-		});
+		/*this.$(.scrollContainer>div).style.set({
+			transform: [scale: this.zoom 1],
+		});*/
 
+		this.update();
 		this.scrollTo((left * this.zoom - this.scroll(#width) / 2).toInteger(), this.scroll(#top), false, false);
+	}
+
+	function update() {
+		var tc = this.$(.timeContainer);
+		tc.clear();
+
+		if (this._recordings.length > 0) {
+			this.startTime = this._recordings[0].StartTime;
+			this.canvasWidth = (this._recordings[this._recordings.length-1].EndTime.valueOf() - this.startTime.valueOf())/1000;
+			this.$(.scrollContainer).style.set({
+				width: this.canvasWidth * this.zoom
+			});
+		}
+
+		for (var rec in this._recordings) {
+			var recElem = tc.$append(<div.recording></div>);
+			recElem.style.set({
+				width: (rec.EndTime.valueOf() - rec.StartTime.valueOf()) / 1000,
+				left: (rec.StartTime.valueOf() - this.startTime.valueOf()) / 1000
+			});
+		}
+	}
+
+	property recordings(v) {
+		get {
+			return this._recordings;
+		}
+		set {
+			this._recordings = v;
+			this.update();
+		}
 	}
 }
