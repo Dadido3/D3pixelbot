@@ -131,7 +131,7 @@ func sciterOpenMain() {
 		return sciter.NewValue(version.String())
 	})
 
-	path, err := filepath.Abs("ui/main.htm")
+	path, err := filepath.Abs(filepath.Join(wd, "ui", "main.htm"))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -313,7 +313,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		return nil
 	})
 
-	path, err := filepath.Abs("ui/canvas.htm")
+	path, err := filepath.Abs(filepath.Join(wd, "ui", "canvas.htm"))
 	if err != nil {
 		log.Fatal(err)
 	}

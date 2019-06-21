@@ -32,7 +32,7 @@ type sciterTime struct {
 	HighDateTime uint32
 }
 
-// Nanoseconds returns sciterTime ft in nanoseconds. The file format sciter uses in its API
+// Nanoseconds returns sciterTime ft in nanoseconds. The time format sciter uses in its API
 // since Epoch (00:00:00 UTC, January 1, 1970).
 func (ft *sciterTime) Nanoseconds() int64 {
 	// 100-nanosecond intervals since January 1, 1601

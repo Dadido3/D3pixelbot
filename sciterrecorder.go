@@ -115,7 +115,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 		return nil
 	})
 
-	path, err := filepath.Abs("ui/recorder.htm")
+	path, err := filepath.Abs(filepath.Join(wd, "ui", "recorder.htm"))
 	if err != nil {
 		log.Fatal(err)
 	}

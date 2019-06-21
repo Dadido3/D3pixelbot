@@ -75,19 +75,21 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 	cdr.QuitWaitGroup.Add(1)
 	go func() {
 		defer cdr.QuitWaitGroup.Done()
-		ticker := time.NewTicker(100 * time.Millisecond)
+		ticker := time.NewTicker(100 * time.Millisecond) // Ticker for sending time update events to the canvas
 		defer ticker.Stop()
 
 		defer log.Tracef("Closed replay goroutine of %v", shortName)
 
-		curTime := <-cdr.TimeChan
+		destTime, ok := <-cdr.TimeChan // Destination time and channel state
+		var replayTime time.Time
 
-		for {
+		// Run while channel is open
+		for ok {
 			// Get recording file where current time is inside its time interval
 			var rec canvasDiskReaderRecording
 			found := false
 			for _, recording := range cdr.Recordings {
-				if !curTime.Before(recording.StartTime) && curTime.Before(recording.EndTime) {
+				if !destTime.Before(recording.StartTime) && destTime.Before(recording.EndTime) {
 					rec = recording
 					found = true
 					break
@@ -95,97 +97,123 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 			}
 
 			if !found {
-				var ok bool
-				curTime, ok = <-cdr.TimeChan
-				if !ok {
-					return // Close goroutine
-				}
+				cdr.Canvas.setTime(destTime)
+				destTime, ok = <-cdr.TimeChan
 				continue
 			}
 
-			close, waitChan := func() (close, waitChan bool) {
+			// Blocks while destTime < newReplayTime
+			// Returns false when a (new) recording should be (re)opened
+			waitTime := func(newReplayTime time.Time) bool {
+				// Get next point in time
+				select {
+				case destTime, ok = <-cdr.TimeChan:
+					if !ok {
+						return false // Close goroutine
+					}
+					// Check if destination time is outside of the recording's time range
+					if destTime.Before(rec.StartTime) || !destTime.Before(rec.EndTime) {
+						return false
+					}
+					// Check if destination time is before replayTime
+					if destTime.Before(replayTime) {
+						return false
+					}
+				default:
+				}
+
+				// Block as long as destTime is < newReplayTime
+				for destTime.Before(newReplayTime) {
+					cdr.Canvas.setTime(destTime) // Output current time when waiting
+
+					destTime, ok = <-cdr.TimeChan
+					if !ok {
+						return false // Close goroutine
+					}
+					// Check if destination time is outside of the recording's time range
+					if destTime.Before(rec.StartTime) || !destTime.Before(rec.EndTime) {
+						return false
+					}
+					// Check if destination time is before replayTime
+					if destTime.Before(replayTime) {
+						return false
+					}
+				}
+
+				replayTime = newReplayTime
+				select {
+				case <-ticker.C:
+					cdr.Canvas.setTime(replayTime) // Send out time update every xxx ms
+				default:
+				}
+
+				return true
+			}
+
+			// Open and read recording. In a function, so defer works inside the loop
+			func() {
+				// Invalidate all on file close
+				defer cdr.Canvas.invalidateAll()
+
 				// Found valid recording, read it
 				fileName := rec.FileName
 				log.Debugf("Open recording %v", fileName)
 				file, err := os.Open(fileName)
 				if err != nil {
 					log.Warnf("Can't open file %v: %v", fileName, err)
-					return false, true
+					waitTime(rec.EndTime)
+					return
 				}
 				defer file.Close()
 				zipReader, err := gzip.NewReader(file)
 				if err != nil {
 					log.Warnf("Can't decompress %v: %v", fileName, err)
-					return false, true
+					waitTime(rec.EndTime)
+					return
 				}
 				defer zipReader.Close()
 
-				replayTime, chunkSize, chunkOrigin, err := canvasDiskReaderParseHeader(zipReader)
+				var chunkSize pixelSize
+				var chunkOrigin image.Point
+				replayTime, chunkSize, chunkOrigin, err = canvasDiskReaderParseHeader(zipReader)
 				if err != nil {
 					log.Warn(err)
-					return false, true
+					waitTime(rec.EndTime)
+					return
 				}
 				if cdr.Canvas.ChunkSize != chunkSize {
-					log.Warnf("Chunk size differs in recording %v. From %v to %v. Separate this and similar files from the others to play it", fileName, cdr.Canvas.ChunkSize, chunkSize)
-					return false, true
+					log.Warnf("Chunk size differs in recording %v. From %v to %v. Seperate this and similar files from the others to play it", fileName, cdr.Canvas.ChunkSize, chunkSize)
+					waitTime(rec.EndTime)
+					return
 				}
 				if cdr.Canvas.Origin != chunkOrigin {
-					log.Warnf("Origin differs in recording %v. From %v to %v. Separate this and similar files from the others to play it", fileName, cdr.Canvas.Origin, chunkOrigin)
-					return false, true
+					log.Warnf("Origin differs in recording %v. From %v to %v. Seperate this and similar files from the others to play it", fileName, cdr.Canvas.Origin, chunkOrigin)
+					waitTime(rec.EndTime)
+					return
 				}
 
-				// Invalidate all on file close
-				defer cdr.Canvas.invalidateAll()
-
-				// Loop that retrieves all the events until replayTime >= curTime
+				// Loop that retrieves all the events until replayTime >= destTime
 				for {
-
-					select {
-					case <-ticker.C:
-						cdr.Canvas.setTime(replayTime) // Send out time update every xxx ms
-					default:
-					}
-
-					// Get next point in time
-					select {
-					case tempTime, ok := <-cdr.TimeChan:
-						if !ok {
-							return true, false // Close goroutine
-						}
-						if tempTime.Before(curTime) || tempTime.After(rec.EndTime) {
-							curTime = tempTime
-							return false, false
-						}
-						curTime = tempTime
-					default:
-						if curTime.Before(replayTime) {
-							cdr.Canvas.setTime(replayTime) // TODO: Call setTime() when another file is opened
-							tempTime, ok := <-cdr.TimeChan // Block here, until new time arrives
-							if !ok {
-								return true, false // Close goroutine
-							}
-							if tempTime.Before(curTime) || tempTime.After(rec.EndTime) {
-								curTime = tempTime
-								return false, false
-							}
-							curTime = tempTime
-						}
-					}
-
 					// Read and send events
 					var dataType uint8
 					var binTime int64
 					err := binary.Read(zipReader, binary.LittleEndian, &dataType)
 					if err != nil {
 						log.Warnf("Error while reading file %v: %v", fileName, err)
-						return false, true
+						waitTime(rec.EndTime)
+						return
 					}
 					err = binary.Read(zipReader, binary.LittleEndian, &binTime)
 					if err != nil {
 						log.Warnf("Error while reading file %v: %v", fileName, err)
-						return false, true
+						waitTime(rec.EndTime)
+						return
 					}
-					replayTime = time.Unix(0, binTime)
+
+					// Block until time is progressed enough. Or if another file needs to be loaded (on false)
+					if !waitTime(time.Unix(0, binTime)) {
+						return
+					}
 
 					switch dataType {
 					case 10: // SetPixel
@@ -196,7 +224,8 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 						err := binary.Read(zipReader, binary.LittleEndian, &dat)
 						if err != nil {
 							log.Warnf("Error while reading file %v: %v", fileName, err)
-							return false, true
+							waitTime(rec.EndTime)
+							return
 						}
 						cdr.Canvas.setPixel(image.Point{int(dat.X), int(dat.Y)}, color.RGBA{dat.R, dat.G, dat.B, 255})
 
@@ -207,7 +236,8 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 						err := binary.Read(zipReader, binary.LittleEndian, &dat)
 						if err != nil {
 							log.Warnf("Error while reading file %v: %v", fileName, err)
-							return false, true
+							waitTime(rec.EndTime)
+							return
 						}
 						cdr.Canvas.invalidateRect(image.Rect(int(dat.MinX), int(dat.MinY), int(dat.MaxX), int(dat.MaxY)))
 
@@ -221,7 +251,8 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 						err := binary.Read(zipReader, binary.LittleEndian, &dat)
 						if err != nil {
 							log.Warnf("Error while reading file %v: %v", fileName, err)
-							return false, true
+							waitTime(rec.EndTime)
+							return
 						}
 						cdr.Canvas.revalidateRect(image.Rect(int(dat.MinX), int(dat.MinY), int(dat.MaxX), int(dat.MaxY)))
 
@@ -233,18 +264,21 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 						err := binary.Read(zipReader, binary.LittleEndian, &dat)
 						if err != nil {
 							log.Warnf("Error while reading file %v: %v", fileName, err)
-							return false, true
+							waitTime(rec.EndTime)
+							return
 						}
 						rawBytes := make([]byte, dat.Size)
 						_, err = io.ReadFull(zipReader, rawBytes)
 						if err != nil {
 							log.Warnf("Error while reading file %v: %v", fileName, err)
-							return false, true
+							waitTime(rec.EndTime)
+							return
 						}
 						img, imageFormat, err := image.Decode(bytes.NewBuffer(rawBytes))
 						if err != nil {
 							log.Warnf("Error while reading %v image from %v: %v", imageFormat, fileName, err)
-							return false, true
+							waitTime(rec.EndTime)
+							return
 						}
 
 						// Move image to X and Y
@@ -262,22 +296,12 @@ func newCanvasDiskReader(shortName string) (connection, *canvas, error) {
 
 					default:
 						log.Warnf("Found invalid data type %v in %v", dataType, fileName)
-						return false, true
+						waitTime(rec.EndTime)
+						return
 
 					}
 				}
 			}()
-
-			if close {
-				return
-			}
-			if waitChan {
-				var ok bool
-				curTime, ok = <-cdr.TimeChan
-				if !ok {
-					return // Close goroutine
-				}
-			}
 		}
 	}()
 
