@@ -49,7 +49,7 @@ func init() {
 		log.Fatalf("Can't get working directory")
 	}
 
-	version, err = semver.NewVersion("0.1.2")
+	version, err = semver.NewVersion("0.1.3")
 	if err != nil {
 		fmt.Println(err.Error())
 	}

@@ -173,7 +173,7 @@ func newPixelcanvasio() (connection, *canvas) {
 			startTime := time.Now()
 			log.Tracef("Download at %v started", cc)
 
-			r, err := myClient.Get(fmt.Sprintf("https://pixelcanvas.io/api/bigchunk/%v.%v.bmp", cc.X, cc.Y))
+			r, err := myClient.Get(fmt.Sprintf("https://api.pixelcanvas.io/api/bigchunk/%v.%v.bmp", cc.X, cc.Y))
 			if err != nil {
 				log.Errorf("Can't get bigchunk at %v: %v", cc, err)
 				return

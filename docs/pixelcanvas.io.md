@@ -89,9 +89,9 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 
 - Download chunk collection (15x15 chunks):
 
-  - URL: `https://pixelcanvas.io/api/bigchunk/ccx.ccy.bmp`  
+  - URL: `https://api.pixelcanvas.io/api/bigchunk/ccx.ccy.bmp`  
     With `ccx` and `ccy` being the offset of the chunk collection.  
-    Example: `https://pixelcanvas.io/api/bigchunk/-10.5.bmp`  
+    Example: `https://api.pixelcanvas.io/api/bigchunk/-10.5.bmp`  
     Make sure to disable any caching for this request.
 
   - Result: Raw image data, 4 bit per pixel:
