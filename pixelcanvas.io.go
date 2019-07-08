@@ -122,7 +122,7 @@ func newPixelcanvasio() (connection, *canvas) {
 			response := &struct {
 				Online int `json:"online"`
 			}{}
-			if err := getJSON("https://europe-west1-pixelcanvasv2.cloudfunctions.net/online", response); err == nil {
+			if err := getJSON("https://pixelcanvas.io/api/online", response); err == nil {
 				atomic.StoreUint32(&con.OnlinePlayers, uint32(response.Online))
 				log.Debugf("Player amount: %v", response.Online)
 			}

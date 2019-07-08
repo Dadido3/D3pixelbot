@@ -138,7 +138,7 @@ Palette(15)\R = 130 : Palette(15)\G = 000 : Palette(15)\B = 128
 
 - Get online player number:
 
-  - URL: `https://europe-west1-pixelcanvasv2.cloudfunctions.net/online`
+  - URL: `https://pixelcanvas.io/api/online`
 
   - Result:JSON Object:
 
