@@ -584,13 +584,13 @@ func (can *canvas) setImage(img image.Image, createIfNonexistent, ignoreNonexist
 	}
 
 	// Copy image, because the chunks will use a subimage of this copy. Otherwise the original image will be edited
-	img, err = copyImage(img)
+	imgCopy, err := copyImage(img)
 	if err != nil {
 		return fmt.Errorf("Can't copy image at %v: %v", img.Bounds(), err)
 	}
 
 	for _, chunk := range chunks {
-		resultImg, err := chunk.setImage(img)
+		resultImg, err := chunk.setImage(imgCopy)
 		if err != nil {
 			//return fmt.Errorf("Could not draw image at %v: %v", img.Bounds(), err)
 			continue

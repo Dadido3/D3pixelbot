@@ -120,6 +120,12 @@ func copyImage(img image.Image) (image.Image, error) {
 		copy(imgCopy.Pix, img.Pix)
 		copy(imgCopy.Palette, img.Palette)
 		return imgCopy, nil
+	case *image.Rectangle:
+		imgCopy := &image.Rectangle{
+			Min: img.Min,
+			Max: img.Max,
+		}
+		return imgCopy, nil
 	}
 
 	return nil, fmt.Errorf("Incompatible image type %T", img)

@@ -47,7 +47,7 @@ func Test_canvas_newCanvasDiskWriter(t *testing.T) {
 	}
 
 	for i := 0; i < 128; i++ {
-		rect := image.Rectangle{image.Point{i * 64, i * 64}, image.Point{i*64 + 64, i*64 + 64}}
+		rect := &image.Rectangle{image.Point{i * 64, i * 64}, image.Point{i*64 + 64, i*64 + 64}}
 		if err := can.setImage(rect, false, false); err != nil {
 			t.Errorf("Can't set image at %v: %v", rect, err)
 		}
