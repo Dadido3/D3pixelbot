@@ -20,10 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	"path/filepath"
 	"sync"
 
 	"github.com/Dadido3/go-sciter"
+	gorice "github.com/Dadido3/go-sciter/rice"
 	"github.com/Dadido3/go-sciter/window"
 	"github.com/spf13/viper"
 )
@@ -53,6 +53,8 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	gorice.HandleDataLoad(w.Sciter)
 
 	w.DefineFunction("getRects", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 0 {
@@ -115,12 +117,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 		return nil
 	})
 
-	path, err := filepath.Abs(filepath.Join(wd, "ui", "recorder.htm"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := w.LoadFile("file://" + path); err != nil {
+	if err := w.LoadFile("rice://ui/recorder.htm"); err != nil {
 		log.Fatal(err)
 	}
 

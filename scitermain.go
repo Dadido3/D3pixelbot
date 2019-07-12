@@ -18,9 +18,9 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/Dadido3/go-sciter"
+	gorice "github.com/Dadido3/go-sciter/rice"
 	"github.com/Dadido3/go-sciter/window"
 )
 
@@ -33,6 +33,8 @@ func sciterOpenMain() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	gorice.HandleDataLoad(w.Sciter)
 
 	w.DefineFunction("openLocal", func(args ...*sciter.Value) *sciter.Value {
 		if len(args) != 1 {
@@ -131,12 +133,7 @@ func sciterOpenMain() {
 		return sciter.NewValue(version.String())
 	})
 
-	path, err := filepath.Abs(filepath.Join(wd, "ui", "main.htm"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := w.LoadFile("file://" + path); err != nil {
+	if err := w.LoadFile("rice://ui/main.htm"); err != nil {
 		log.Fatal(err)
 	}
 

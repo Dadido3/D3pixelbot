@@ -2,6 +2,7 @@ module github.com/Dadido3/D3pixelbot
 
 require (
 	github.com/Dadido3/go-sciter v0.5.1-0.20190712151119-1d1f10e8d430
+	github.com/GeertJohan/go.rice v1.0.0
 	github.com/coreos/go-semver v0.2.0
 	github.com/gorilla/websocket v1.4.0
 	github.com/klauspost/compress v1.5.0 // indirect
