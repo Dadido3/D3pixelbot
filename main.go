@@ -53,9 +53,6 @@ func init() {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
-	runtime.LockOSThread() // Locks the whole program to the main thread (Except newly spawned goroutines). That's needed for the UI to work properly.
-	// TODO: Only lock when UI is needed (If headless mode is not configured), or use lib to call sciterOpenMain() from main thread.
 }
 
 func main() {

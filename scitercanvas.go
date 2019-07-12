@@ -28,9 +28,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Dadido3/go-sciter"
+	"github.com/Dadido3/go-sciter/window"
 	"github.com/nfnt/resize"
-	"github.com/sciter-sdk/go-sciter"
-	"github.com/sciter-sdk/go-sciter/window"
 )
 
 // A sciter window, showing a canvas
@@ -196,8 +196,8 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			log.Errorf("Wrong number of parameters")
 			return sciter.NewValue("Wrong number of parameters")
 		}
-		jsonRect := args[0] // Clone if value is needed after this function returned
-		if !jsonRect.IsDate() {
+		sciterTime := args[0] // Clone if value is needed after this function returned
+		if !sciterTime.IsDate() {
 			log.Errorf("Wrong type of parameters")
 			return sciter.NewValue("Wrong type of parameters")
 		}
@@ -208,14 +208,13 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			return sciter.NewValue(fmt.Sprintf("Can't set replay time on %T", con))
 		}
 
-		ft := &sciterTime{
-			LowDateTime:  uint32(jsonRect.Int64()),
-			HighDateTime: uint32(jsonRect.Int64() >> 32),
+		t, err := sciterTime.Time()
+		if err != nil {
+			log.Errorf("Error getting time: %v", err)
+			return sciter.NewValue(fmt.Sprintf("Error getting time: %v", err))
 		}
 
-		t := time.Unix(0, ft.Nanoseconds())
-
-		err := conR.setReplayTime(t)
+		err = conR.setReplayTime(t)
 		if err != nil {
 			log.Errorf("Can't set replay time %T", err)
 			return sciter.NewValue(err.Error())

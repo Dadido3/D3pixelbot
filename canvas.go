@@ -117,6 +117,7 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 			can.Lock()
 			//delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min)) // TODO: Add option to not delete old chunks (For replay)
 			// TODO: IDEA: Only delete invalid chunks, and add option to clean up canvas (invalidate chunks outside of rects)
+			// TODO: Fix chunks getting stuck in downloading state. Reset downloading state if it failed!
 			can.Unlock()
 		case chunkDownload:
 			select {
