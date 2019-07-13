@@ -12,6 +12,10 @@ matrix:
         - go test
         - go build
       before_deploy: ./scripts/pack_windows.x86-64.bat
+      cache:
+        directories:
+          - $HOME/AppData/Local/go-build
+          - $HOME/gopath/pkg/mod
     - os: linux
       script:
         - xvfb-run go test
@@ -23,13 +27,12 @@ matrix:
             - xvfb
             - libgtk-3-dev
       before_deploy: ./scripts/pack_linux.x86-64.sh
+      cache:
+        directories:
+          - $HOME/.cache/go-build
+          - $HOME/gopath/pkg/mod
 
 install: true
-
-cache:
-  directories:
-    - $HOME/.cache/go-build
-    - $HOME/gopath/pkg/mod
 
 deploy:
   provider: releases
