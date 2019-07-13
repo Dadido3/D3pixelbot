@@ -8,10 +8,14 @@ env:
 matrix:
   include:
     - os: windows
-      script: ./scripts/build_windows.x86-64.bat
+      script:
+        - go test
+        - ./scripts/build_windows.x86-64.bat
       before_deploy: ./scripts/pack_windows.x86-64.bat
     - os: linux
-      script: ./scripts/build_linux.x86-64.sh
+      script:
+        - go test
+        - ./scripts/build_linux.x86-64.sh
       before_deploy: ./scripts/pack_linux.x86-64.sh
 
 install: true

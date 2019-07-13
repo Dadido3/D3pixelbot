@@ -1,5 +1,7 @@
 # D3pixelbot
 
+[![Build Status](https://travis-ci.com/Dadido3/D3pixelbot.svg?branch=master)](https://travis-ci.com/Dadido3/D3pixelbot)
+
 This is a custom client, bot, recorder, timelapse creator and more for PixelCanvas.io and similar online games.
 In contrast to similar projects this client is made to be configurable and usable without any hassles.
 Programming experience isn't necessary, and there is no need to install runtimes for any scripting language.
