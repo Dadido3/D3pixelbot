@@ -2,12 +2,29 @@ language: go
 go: 
   - "1.12.x"
 
-os:
-  - windows
-  - linux
-  - osx
-
 env:
   - GO111MODULE=on
 
+matrix:
+  include:
+    - os: windows
+      script: ./scripts/build_windows.x86-64.ps1
+    - os: linux
+      script: ./scripts/build_linux.x86-64.sh
+      before_install:
+        - sudo apt-get update
+        - sudo apt-get install -y libgtk-3-dev
+
 install: true
+
+deploy:
+  provider: releases
+  api_key:
+    secure: pUvWpsj6oy+F+C71ftozpf7ZhAC808Y1vVaxjql3CUYVZGN1Fx8KnmTJpjZxhLALadCQmp3QrqEZ6uWeamHy66ipPyroM+yHlx4vUqOlE973S/lF7F+VWUCaJBv04nTkPquQrr/quqrpj/1YYthWa7ZaNcqOuhkRd2/VWevPw3vbvwCPd9bWDMcY9gdtXmIiLrkF6eZPo7L4nM759jOG2wIN4W10x57qv9xdVGpLkRKvFcKfEyS0iPXbANdwZcjKesumpyNY3DzgKf8mKOcLrKe/BT7z0CqYT+Z55bwD+TQt94sh5OinPhotKtnEhR+zEN+5EonF4hwHNAfYNl9x2IiEVww4XTdGHN/RK+3GKCNP7raDbvsGimp4egF+7HzTmqBsL6LqkGMX6cUBVLpgu5IL2s98zSGudhYkmo5Dm+WYP1CmHDFSOYj5qUuTbZuQoqoy/yhKLKeEfGJJeO7wyRONypB9Q7S+Rpr4PMrW1pQqdTEHxho9Vr/5HtxP9Z2dWEOlsK9GH9i4eLtt2p0crArgTFruE2qd8eXRfMx8tBL+15hgPoPczhalFvUQnnV0QJ0flnm2uTtJZGz1Tv28qeFz36K4z8wGYyLV5fDhyYV392PbR8SKDlxc9WNifGk979mMbJHKrTzNI781Nczg4kz8rW/0ymWjNycjE6BQJT0=
+  file:
+    - "./distribution/Windows.x86-64.7z"
+    - "./distribution/Linux.x86-64.7z"
+  skip_cleanup: true
+  draft: true
+  on:
+    tags: true
