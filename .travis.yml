@@ -5,20 +5,23 @@ go:
 env:
   - GO111MODULE=on
 
-script:
-  - go test
-  - go build
-
 matrix:
   include:
     - os: windows
+      script:
+        - go test
+        - go build
       before_deploy: ./scripts/pack_windows.x86-64.bat
     - os: linux
-      before_install:
-        - sudo apt-get install -y libgtk-3-dev
+      script:
+        - xvfb-run go test
+        - go build
       addons:
         apt:
           update: true
+          packages:
+            - xvfb
+            - libgtk-3-dev
       before_deploy: ./scripts/pack_linux.x86-64.sh
 
 install: true
