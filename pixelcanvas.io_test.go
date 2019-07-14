@@ -43,6 +43,11 @@ func saveCanvasImage(can *canvas, rect image.Rectangle, filename string) error {
 }
 
 func Test_newPixelcanvasio(t *testing.T) {
+
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping testing in CI environment")
+	}
+
 	con, can := newPixelcanvasio()
 	defer con.Close()
 
