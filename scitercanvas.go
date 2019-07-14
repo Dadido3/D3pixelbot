@@ -132,23 +132,30 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 			return sciter.NewValue("Wrong number of parameters")
 		}
 
-		sca.ClosedMutex.Lock()
-		defer sca.ClosedMutex.Unlock()
+		// unsubscribeCanvasEvents is non blocking, but an Unsubscribed event is sent to the callback
+		go func() {
+			sca.ClosedMutex.Lock()
+			defer sca.ClosedMutex.Unlock()
 
-		if sca.handlerChan == nil {
-			log.Errorf("Not subscribed")
-			return sciter.NewValue("Not subscribed")
-		}
+			if sca.handlerChan == nil {
+				log.Errorf("Not subscribed")
+				return
+			}
 
-		err := can.unsubscribeListener(sca)
-		if err != nil {
-			log.Errorf("Can't unsubscribe to canvas: %v", err)
-			return sciter.NewValue(fmt.Sprintf("Can't unsubscribe to canvas: %v", err))
-		}
+			err := can.unsubscribeListener(sca)
+			if err != nil {
+				log.Errorf("Can't unsubscribe from canvas: %v", err)
+				return
+			}
 
-		close(sca.handlerChan)
-		sca.handlerChan = nil // Goroutine has its own reference to this channel
-		sca.Closed = true
+			val := sciter.NewValue()
+			val.Set("Type", "Unsubscribed")
+			sca.handlerChan <- val
+
+			close(sca.handlerChan)
+			sca.handlerChan = nil // Goroutine has its own reference to this channel
+			sca.Closed = true
+		}()
 
 		return nil
 	})
@@ -225,7 +232,6 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		return nil
 	})
 
-	// TODO: Hide UI if connection doesn't have the replayTime method
 	w.DefineFunction("hasReplayTime", func(args ...*sciter.Value) (val *sciter.Value) {
 		val = sciter.NewValue()
 
@@ -248,8 +254,8 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 		sciterRecs := sciter.NewValue()
 		for i, rec := range recs {
 			sciterRec := sciter.NewValue()
-			sciterRec.Set("StartTime", rec.StartTime.Format(time.RFC3339Nano))
-			sciterRec.Set("EndTime", rec.EndTime.Format(time.RFC3339Nano))
+			sciterRec.Set("StartTime", rec.StartTime)
+			sciterRec.Set("EndTime", rec.EndTime)
 			sciterRec.Set("FileName", rec.FileName)
 			sciterRecs.SetIndex(i, sciterRec)
 		}
@@ -547,7 +553,7 @@ func (s *sciterCanvas) handleSetTime(t time.Time) error {
 
 	val := sciter.NewValue()
 	val.Set("Type", "SetTime")
-	val.Set("RFC3339Nano", t.Format(time.RFC3339Nano))
+	val.Set("Time", t)
 
 	s.handlerChan <- val
 

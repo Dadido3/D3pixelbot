@@ -1,29 +1,61 @@
 class TimeSlider : Behavior {
 	function attached() {
 		this.canvasWidth = 1000; // Range in seconds
-		this.currentTime = Date.now();
+		this._currentTime = Date.now();
+		this._replayTime = Date.now();
 		this.startTime = Date.now(); // Time of the left side of the range
 		this.zoom = 1.0; // dip / second
-		this.zoomLevel = 0;
+		this.zoomLevel = -40;
 		this._recordings = {};
+		this.replayTimeCallback = null;
 
 		this.on("mousedown", function(evt) {
-			if (evt.buttons == 0x04) { // Middle mouse button
-				this.scrolling = true;
-				this.scrollingX = evt.x;
-				this.scrollingY = evt.y;
-				this.capture(#strict);
+			switch(evt.buttons) { // TODO: Check if multiple buttons can be active
+				case 0x01: { // Left mouse button
+					this.replayTimeDragging = true;
+					var ms = (evt.x + this.scroll(#left)) * 1000 / this.zoom + this.startTime.valueOf();
+					this._replayTime = new Date(ms);
+					if (this.replayTimeCallback) {
+						this.replayTimeCallback(this._replayTime);
+					}
+					this.capture(#strict); // TODO: Mind the other button when capturing/releasing the mouse
+					this.refresh();
+					break;
+				}
+				case 0x04: { // Middle mouse button
+					this.scrolling = true;
+					this.scrollingX = evt.x;
+					this.scrollingY = evt.y;
+					this.capture(#strict);
+					break;
+				}
 			}
 		});
 
 		this.on("mouseup", function(evt) {
-			if (evt.buttons == 0x04) { // Middle mouse button
-				this.scrolling = false;
-				this.capture(false);
+			switch(evt.buttons) {
+				case 0x01: { // Left mouse button
+					this.replayTimeDragging = false;
+					this.capture(false);
+					break;
+				}
+				case 0x04: { // Middle mouse button
+					this.scrolling = false;
+					this.capture(false);
+					break;
+				}
 			}
 		});
 
 		this.on("mousemove", function(evt) {
+			if (this.replayTimeDragging) {
+				var ms = (evt.x + this.scroll(#left)) * 1000 / this.zoom + this.startTime.valueOf();
+				this._replayTime = new Date(ms);
+				if (this.replayTimeCallback) {
+					this.replayTimeCallback(this._replayTime);
+				}
+				this.refresh();
+			}
 			if (this.scrolling) {
 				var (dx, dy) = (evt.x - this.scrollingX, evt.y - this.scrollingY);
 				this.scrollTo(this.scroll(#left)-dx, this.scroll(#top)-dy, false, false);
@@ -33,10 +65,10 @@ class TimeSlider : Behavior {
 		});
 
 		this.on("mousewheel", function(evt) {
-			this.setZoom(this.zoomLevel + evt.wheelDelta);
+			this.setZoom(this.zoomLevel + evt.wheelDelta); // TODO: Scroll relative to mouse position
 		});
 
-		// Draw ticks
+		// Draw lines
 		this.paintBackground = function(gfx) {
 			var left = this.scroll(#left);
 			var (x,y,w,h) = this.box(#rectw);
@@ -57,6 +89,16 @@ class TimeSlider : Behavior {
 				var sx = i * pixelZoom * tickSize - left;
 				gfx.line(sx, 0, sx, h);
 			}
+
+			gfx.strokeColor(color(255, 0, 0));
+			gfx.strokeWidth(2);
+			var sx = (this._currentTime.valueOf() - this.startTime.valueOf())/1000 * pixelZoom - left;
+			gfx.line(sx, 0, sx, h);
+
+			gfx.strokeColor(color(0, 0, 0));
+			gfx.strokeWidth(6);
+			sx = (this._replayTime.valueOf() - this.startTime.valueOf())/1000 * pixelZoom - left;
+			gfx.line(sx, h-h/4, sx, h);
 
 			//gfx.popLayer();
 			gfx.restore();
@@ -83,7 +125,7 @@ class TimeSlider : Behavior {
 			gfx.restore();*/
 		}
 
-		this.setZoom(0);
+		this.setZoom(this.zoomLevel);
 	}
 
 	function detached() {
@@ -95,7 +137,7 @@ class TimeSlider : Behavior {
 		var top = (this.scroll(#top) + this.scroll(#height) / 2) / this.zoom;
 
 		if (zoomLevel > 5) zoomLevel = 5;
-		if (zoomLevel < -60) zoomLevel = -60;
+		if (zoomLevel < -200) zoomLevel = -200;
 
 		this.zoomLevel = zoomLevel;
 		this.zoom = Math.pow(Math.pow(2, 1/5.0), zoomLevel);
@@ -104,21 +146,17 @@ class TimeSlider : Behavior {
 			width: this.canvasWidth * this.zoom
 		};
 
-		/*this.$(.scrollContainer>div).style.set({
-			transform: [scale: this.zoom 1],
-		});*/
-
-		this.update();
+		this.updateRecBoxes();
 		this.scrollTo((left * this.zoom - this.scroll(#width) / 2).toInteger(), this.scroll(#top), false, false);
 	}
 
-	function update() {
+	function updateRecBoxes() {
 		var tc = this.$(.timeContainer);
 		tc.clear();
 
 		if (this._recordings.length > 0) {
 			this.startTime = this._recordings[0].StartTime;
-			this.canvasWidth = (this._recordings[this._recordings.length-1].EndTime.valueOf() - this.startTime.valueOf())/1000;
+			this.canvasWidth = (this._recordings[this._recordings.length-1].EndTime.valueOf() - this.startTime.valueOf()) / 1000.0;
 			this.$(.scrollContainer).style.set({
 				width: this.canvasWidth * this.zoom
 			});
@@ -127,19 +165,39 @@ class TimeSlider : Behavior {
 		for (var rec in this._recordings) {
 			var recElem = tc.$append(<div.recording></div>);
 			recElem.style.set({
-				width: (rec.EndTime.valueOf() - rec.StartTime.valueOf()) / 1000,
-				left: (rec.StartTime.valueOf() - this.startTime.valueOf()) / 1000
+				width: (rec.EndTime.valueOf() - rec.StartTime.valueOf()) / 1000.0 * this.zoom,
+				left: (rec.StartTime.valueOf() - this.startTime.valueOf()) / 1000.0 * this.zoom
 			});
 		}
 	}
 
-	property recordings(v) {
+	property recordings(val) {
 		get {
 			return this._recordings;
 		}
 		set {
-			this._recordings = v;
-			this.update();
+			this._recordings = val;
+			this.updateRecBoxes();
+		}
+	}
+
+	property currentTime(v) {
+		get {
+			return this._currentTime;
+		}
+		set {
+			this._currentTime = v;
+			this.refresh();
+		}
+	}
+
+	property replayTime(v) {
+		get {
+			return this._replayTime;
+		}
+		set {
+			this._replayTime = v;
+			this.refresh();
 		}
 	}
 }

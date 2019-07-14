@@ -18,7 +18,7 @@ Here is a list of implemented features or soon to be implemented things/ideas:
 - [ ] Nice looking UI to control everything
 - [x] Reconnects, downloads and re-downloads automatically and as needed
 - [x] View canvas as you can on the game's website
-- [x] Record canvas events (Relatively compact: ~10-20 MB/day, can be reduced further later)
+- [x] Record canvas events (Relatively compact: ~10-20 MB/day (for an area of ~400 megapixels), can be reduced further later)
 - [x] Play back recordings (Freely seekable)
 - [x] Export image sequence from recordings (Subset of the recorded canvas, timelapses, ...)
 - [x] Multitasking. You can run many game instances/tasks from a single application

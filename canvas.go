@@ -115,9 +115,7 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 		switch chunk.getQueryState(resetTime) {
 		case chunkDelete:
 			can.Lock()
-			//delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min)) // TODO: Add option to not delete old chunks (For replay)
-			// TODO: IDEA: Only delete invalid chunks, and add option to clean up canvas (invalidate chunks outside of rects)
-			// TODO: Fix chunks getting stuck in downloading state. Reset downloading state if it failed!
+			delete(can.Chunks, can.ChunkSize.getChunkCoord(chunk.Rect.Min, can.Origin))
 			can.Unlock()
 		case chunkDownload:
 			select {
@@ -203,7 +201,7 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 			case event, ok := <-can.EventChan:
 				if !ok {
 					// Close goroutine, as the channel is gone
-					log.Trace("Broadcaster closed!")
+					log.Trace("Canvas event broadcaster closed")
 					return
 				}
 				switch event := event.(type) {

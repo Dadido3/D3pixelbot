@@ -49,19 +49,16 @@
 			$(#btn-local-open).on("click", function() {
 				var values = $(#local-settings).value;
 				var res = view.openLocal(values.game);
-				debug : res;
 			});
 
 			$(#btn-local-record).on("click", function() {
 				var values = $(#local-settings).value;
 				var res = view.recordLocal(values.game);
-				debug : res;
 			});
 
 			$(#btn-local-replay).on("click", function() {
 				var values = $(#local-settings).value;
 				var res = view.replayLocal(values.game);
-				debug : res;
 			});
 
 			function self.ready() {

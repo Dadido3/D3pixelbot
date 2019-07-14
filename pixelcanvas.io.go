@@ -247,7 +247,7 @@ func newPixelcanvasio() (connection, *canvas) {
 				u.RawQuery = "fingerprint=" + con.Fingerprint
 
 				// Connect to websocket server
-				c, _, err := websocket.DefaultDialer.Dial(u.String(), nil) // TODO: Connecting pinging and timeouts
+				c, _, err := websocket.DefaultDialer.Dial(u.String(), nil) // TODO: Ping websocket connection and set timeouts
 				if err != nil {
 					log.Errorf("Failed to connect to websocket server %v: %v", u.String(), err)
 					continue

@@ -21,4 +21,5 @@ timeslider .timeContainer > div {
 	height: 60dip;
 	top: 20dip;
 	background-color: rgba(255, 0, 0, 0.25);
+	border: solid 1dip red;
 }

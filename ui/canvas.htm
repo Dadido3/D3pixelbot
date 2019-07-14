@@ -128,14 +128,18 @@
 				var formValues = $(#replay-time).value;
 				var rd = formValues.Date;
 				var rt = formValues.Time;
-				view.setReplayTime(Date.local(rd.year, rd.month, rd.day, rt.hour, rt.minute, rt.second));
+				var t = Date.local(rd.year, rd.month, rd.day, rt.hour, rt.minute, rt.second);
+				$(timeslider).replayTime = t;
+				view.setReplayTime(t);
 			});
 
 			$(#replay-time > input(Time)).on("change", function() {
 				var formValues = $(#replay-time).value;
 				var rd = formValues.Date;
 				var rt = formValues.Time;
-				view.setReplayTime(Date.local(rd.year, rd.month, rd.day, rt.hour, rt.minute, rt.second));
+				var t = Date.local(rd.year, rd.month, rd.day, rt.hour, rt.minute, rt.second);
+				$(timeslider).replayTime = t;
+				view.setReplayTime(t);
 			});
 
 			var timeTrigger;
@@ -160,6 +164,8 @@
 					Date: t,
 					Time: t
 				};
+
+				$(timeslider).currentTime = t;
 
 				if ($(#output).value.Autosave && timeTrigger && t.valueOf() >= timeTrigger.valueOf()) {
 					saveImage();
@@ -202,6 +208,7 @@
 					Time: t
 				};
 
+				$(timeslider).replayTime = t;
 				view.setReplayTime(t);
 
 				if ($(#output).value.Autosave) {
@@ -221,15 +228,18 @@
 				
 				var result = view.hasReplayTime();
 				if (result.Recs && result.Recs.length > 0) {
-					for (var (k, v) in result.Recs) {
-						v.StartTime = new Date(v.StartTime);
-						v.EndTime = new Date(v.EndTime);
-						result.Recs[k] = v;
-					}
 					$(timeslider).recordings = result.Recs;
 					$(#replay-time).value = {
 						Date: result.Recs[0].StartTime,
 						Time: result.Recs[0].StartTime
+					};
+					$(timeslider).replayTime = result.Recs[0].StartTime;
+					$(timeslider).replayTimeCallback = function (t) {
+						$(#replay-time).value = {
+							Date: t,
+							Time: t
+						};
+						view.setReplayTime(t);
 					};
 				} else {
 					for (var elem in $$(.replay-hide)) {

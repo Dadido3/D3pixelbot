@@ -102,6 +102,8 @@ class PixCanvas : Behavior {
 		this.zoomLevel = zoomLevel;
 		this.zoom = Math.pow(Math.pow(2, 1.0/4), zoomLevel);
 
+		this.attributes.toggleClass("smoothImage", (zoomLevel < 0));
+		
 		this.$(.canvasContainer).style.set { // TODO: Use zoom property
 			width: this.canvasWidth * this.zoom,
 			height: this.canvasHeight * this.zoom
@@ -256,7 +258,7 @@ class PixCanvas : Behavior {
 	}
 
 	function eventSetTime(event) {
-		this.time = new Date(event.RFC3339Nano);
+		this.time = event.Time;
 
 		if (this.timeCallback) {
 			this.timeCallback(this.time);

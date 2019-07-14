@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	chunkDeleteTime = 5 * time.Minute
+	chunkDeleteNoQueryDuration = 5 * time.Minute
+	chunkDeleteInvalidDuration = 5 * time.Minute
 )
 
 type pixelQueueElement struct {
@@ -39,9 +40,10 @@ type chunk struct {
 	Rect  image.Rectangle
 	Image image.Image // TODO: Compress or unload image when not needed
 
-	PixelQueue         []pixelQueueElement // Queued pixels, that are set while the image is downloading
-	Valid, Downloading bool                // Valid: Data is in sync with the game. Downloading: Data is being downloaded. Both flags can't be true at the same time
-	LastQueryTime      time.Time           // Point in time, when that chunk was queried last time. If this chunk hasn't been queried for some period, it will be unloaded.
+	PixelQueue           []pixelQueueElement // Queued pixels, that are set while the image is downloading
+	Valid, Downloading   bool                // Valid: Data is in sync with the game. Downloading: Data is being downloaded. Both flags can't be true at the same time
+	LastQueryTime        time.Time           // Point in time, when that chunk was queried last. If this chunk hasn't been queried for some period, it will be unloaded.
+	LastInvalidationTime time.Time           // Point in time, when that chunk was invalidated last.
 }
 
 // Create new empty chunk with rect
@@ -49,10 +51,11 @@ func newChunk(rect image.Rectangle) *chunk {
 	cRect := rect.Canon()
 
 	chunk := &chunk{
-		Rect:          cRect,
-		Image:         &cRect,
-		PixelQueue:    []pixelQueueElement{},
-		LastQueryTime: time.Now(),
+		Rect:                 cRect,
+		Image:                &cRect,
+		PixelQueue:           []pixelQueueElement{},
+		LastQueryTime:        time.Now(),
+		LastInvalidationTime: time.Now(),
 	}
 
 	return chunk
@@ -233,6 +236,7 @@ func (chu *chunk) invalidateImage() {
 	defer chu.Unlock()
 
 	chu.Valid = false
+	chu.LastInvalidationTime = time.Now()
 
 	return
 }
@@ -265,7 +269,7 @@ func (chu *chunk) signalDownload() bool {
 	}
 
 	chu.PixelQueue = []pixelQueueElement{} // Empty queue on new download.
-	chu.Downloading = true
+	chu.Downloading = true                 // TODO: Fix chunks getting stuck in downloading state. Reset downloading state if the download failed!
 
 	return true
 }
@@ -286,16 +290,21 @@ func (chu *chunk) getQueryState(resetTime bool) chunkQueryResult {
 	chu.Lock()
 	defer chu.Unlock()
 
-	if chu.LastQueryTime.Add(chunkDeleteTime).Before(time.Now()) {
+	// TODO: Add option to not delete old chunks (For replay)
+	// TODO: Add option to ignore chunkDeleteInvalidDuration
+	// Delete chunks that were invalid for some time and haven't been queried for some time
+	if !chu.Valid && chu.LastInvalidationTime.Add(chunkDeleteInvalidDuration).Before(time.Now()) && chu.LastQueryTime.Add(chunkDeleteNoQueryDuration).Before(time.Now()) {
 		return chunkDelete
-	}
-	if !chu.Valid && !chu.Downloading {
-		return chunkDownload
 	}
 
 	// Only set the time when the chunk is not downloading. So it will be deleted after some time if it is "stuck"
 	if !chu.Downloading && resetTime {
 		chu.LastQueryTime = time.Now()
+	}
+
+	// Suggest downloading of the chunk if it is invalid and not downloading already
+	if !chu.Valid && !chu.Downloading {
+		return chunkDownload
 	}
 
 	return chunkKeep

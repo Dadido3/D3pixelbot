@@ -25,6 +25,10 @@ pixcanvas .chunk > img {
 	image-rendering: pixelated;
 }
 
+pixcanvas.smoothImage .chunk > img {
+	image-rendering: default !important;
+}
+
 pixcanvas span {
 	width: 100%;
 	height: 100%;
