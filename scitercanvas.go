@@ -55,7 +55,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 
 	w, err := window.New(sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_GLASSY|sciter.SW_ENABLE_DEBUG, sciter.NewRect(50, 300, 800, 800))
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	gorice.HandleDataLoad(w.Sciter)
@@ -327,7 +327,7 @@ func sciterOpenCanvas(con connection, can *canvas) (closedChan chan struct{}) {
 	})
 
 	if err := w.LoadFile("rice://ui/canvas.htm"); err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	// Testing pixel events

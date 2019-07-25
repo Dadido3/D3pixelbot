@@ -51,7 +51,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 	cdw, err := can.newCanvasDiskWriter(con.getShortName())
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	sre.DiskWriter = cdw
 
@@ -63,7 +63,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 	w, err := window.New(sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_GLASSY|sciter.SW_ENABLE_DEBUG, sciter.NewRect(50, 300, 400, 500))
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	gorice.HandleDataLoad(w.Sciter)
@@ -136,7 +136,7 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 	})
 
 	if err := w.LoadFile("rice://ui/recorder.htm"); err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	w.Show()

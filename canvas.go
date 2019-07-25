@@ -374,7 +374,7 @@ func newCanvas(chunkSize pixelSize, origin image.Point, canvasRect image.Rectang
 
 					}
 				default:
-					log.Fatalf("Unknown event occurred: %T", event)
+					log.Panicf("Unknown event occurred: %T", event)
 				}
 			case <-ticker.C: // Query all rects every minute
 				for _, state := range listeners {

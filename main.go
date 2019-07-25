@@ -46,12 +46,12 @@ func init() {
 	var err error
 	wd, err = os.Getwd()
 	if err != nil {
-		log.Fatalf("Can't get working directory")
+		log.Panic("Can't get working directory")
 	}
 
 	version, err = semver.NewVersion("0.1.4")
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Panic(err.Error())
 	}
 }
 
@@ -68,7 +68,7 @@ func main() {
 	os.MkdirAll(filepath.Join(wd, "log"), os.ModePerm)
 	f, err := os.OpenFile(filepath.Join(wd, "log", time.Now().UTC().Format("2006-01-02T150405")+".log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+		log.Panicf("error opening file: %v", err)
 	}
 	defer f.Close()
 
@@ -85,7 +85,7 @@ func main() {
 
 	/*pFile, err := os.Create("cpu.pprof")
 	if err != nil {
-		log.Fatal(err)
+		log.Panicf(err)
 	}
 	defer pFile.Close()
 	pprof.StartCPUProfile(pFile)

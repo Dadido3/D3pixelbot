@@ -31,7 +31,7 @@ func sciterOpenMain() {
 
 	w, err := window.New(sciter.SW_MAIN|sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_ENABLE_DEBUG|sciter.SW_GLASSY, sciter.NewRect(300, 300, 500, 400)) // TODO: Store/Restore window position or open it in screen center
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	gorice.HandleDataLoad(w.Sciter)
@@ -134,7 +134,7 @@ func sciterOpenMain() {
 	})
 
 	if err := w.LoadFile("rice://ui/main.htm"); err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	w.Show()
