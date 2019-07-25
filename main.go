@@ -20,7 +20,6 @@
 // TODO: Add way to gracefully stop everything when main window closes, or when the console closes.
 // TODO: Refactor most variable names when gorename works with modules
 // TODO: Add headless mode, and service
-// TODO: Fix bug where chunks don't download
 
 package main
 
@@ -32,15 +31,16 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/Dadido3/configdb"
 	"github.com/coreos/go-semver/semver"
 	colorable "github.com/mattn/go-colorable"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 var log = logrus.New()
 var wd string // Initial working directory (Executable directory)
 var version *semver.Version
+var conf *configdb.Config
 
 func init() {
 	var err error
@@ -75,10 +75,10 @@ func main() {
 	log.SetOutput(io.MultiWriter(colorable.NewColorableStdout(), f)) // TODO: Separate formatting for logfiles
 	log.SetLevel(logrus.TraceLevel)
 
-	viper.SetConfigFile(filepath.Join(wd, "config.json"))
-	err = viper.ReadInConfig()
+	storages := []configdb.Storage{configdb.UseJSONFile("config.json")}
+	conf, err = configdb.New(storages)
 	if err != nil {
-		log.Errorf("Can't load config file: %v", err)
+		log.Errorf("Can't load configuration: %v", err)
 	}
 
 	log.Infof("D3pixelbot %v started", version)

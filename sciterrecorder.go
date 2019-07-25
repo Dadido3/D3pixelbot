@@ -22,10 +22,10 @@ import (
 	"image"
 	"sync"
 
+	"github.com/Dadido3/configdb"
 	"github.com/Dadido3/go-sciter"
 	gorice "github.com/Dadido3/go-sciter/rice"
 	"github.com/Dadido3/go-sciter/window"
-	"github.com/spf13/viper"
 )
 
 // A sciter window, showing a canvas
@@ -49,6 +49,18 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 		Closed:     true,
 	}
 
+	cdw, err := can.newCanvasDiskWriter(con.getShortName())
+	if err != nil {
+		log.Fatal(err)
+	}
+	sre.DiskWriter = cdw
+
+	confCallbackID := conf.RegisterCallback([]string{".recorder." + con.getShortName() + ".rects"}, func(c *configdb.Config, modified, added, removed []string) {
+		rects := []image.Rectangle{}
+		c.Get(".recorder."+con.getShortName()+".rects", &rects)
+		cdw.setListeningRects(rects)
+	})
+
 	w, err := window.New(sciter.SW_RESIZEABLE|sciter.SW_TITLEBAR|sciter.SW_CONTROLS|sciter.SW_GLASSY|sciter.SW_ENABLE_DEBUG, sciter.NewRect(50, 300, 400, 500))
 	if err != nil {
 		log.Fatal(err)
@@ -64,7 +76,10 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 
 		rects := []image.Rectangle{}
 
-		viper.UnmarshalKey("recorder."+con.getShortName()+".rects", &rects)
+		if err := conf.Get(".recorder."+con.getShortName()+".rects", &rects); err != nil {
+			log.Errorf("Error reading configuration: %v", err)
+			return sciter.NewValue(fmt.Sprintf("Error reading configuration: %v", err))
+		}
 
 		b, err := json.Marshal(rects)
 		if err != nil {
@@ -96,9 +111,10 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 			return sciter.NewValue(fmt.Sprintf("Error reading json: %v", err))
 		}
 
-		sre.DiskWriter.setListeningRects(rects)
-		viper.Set("recorder."+con.getShortName()+".rects", rects)
-		viper.WriteConfig()
+		if err := conf.Set(".recorder."+con.getShortName()+".rects", rects); err != nil {
+			log.Errorf("Error writing configuration: %v", err)
+			return sciter.NewValue(fmt.Sprintf("Error writing configuration: %v", err))
+		}
 
 		return nil
 	})
@@ -110,6 +126,8 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 			return sciter.NewValue("Wrong number of parameters")
 		}
 
+		conf.UnregisterCallback(confCallbackID)
+
 		sre.DiskWriter.Close()
 
 		close(closedChan)
@@ -120,16 +138,6 @@ func sciterOpenRecorder(con connection, can *canvas) (closedChan chan struct{}) 
 	if err := w.LoadFile("rice://ui/recorder.htm"); err != nil {
 		log.Fatal(err)
 	}
-
-	cdw, err := can.newCanvasDiskWriter(con.getShortName())
-	if err != nil {
-		log.Fatal(err)
-	}
-	sre.DiskWriter = cdw
-
-	rects := []image.Rectangle{}
-	viper.UnmarshalKey("recorder."+con.getShortName()+".rects", &rects)
-	cdw.setListeningRects(rects)
 
 	w.Show()
 

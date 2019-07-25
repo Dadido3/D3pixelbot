@@ -1,18 +1,18 @@
 {
-  "recorder": {
-    "pixelcanvasio": {
-      "rects": [
-        {
-          "Min": {
-            "X": -1000,
-            "Y": -1000
-          },
-          "Max": {
-            "X": 1000,
-            "Y": 1000
-          }
+    "recorder": {
+        "pixelcanvasio": {
+            "rects": [
+                {
+                    "Min": {
+                        "X": -1000,
+                        "Y": -1000
+                    },
+                    "Max": {
+                        "X": 1000,
+                        "Y": 1000
+                    }
+                }
+            ]
         }
-      ]
     }
-  }
 }
