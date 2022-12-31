@@ -12,6 +12,8 @@ require (
 	github.com/mattn/go-colorable v0.1.2
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/sirupsen/logrus v1.4.2
-	golang.org/x/image v0.0.0-20190523035834-f03afa92d3ff
-	gopkg.in/yaml.v2 v2.2.2 // indirect
+	golang.org/x/image v0.2.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+go 1.13
